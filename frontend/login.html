@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Breast Cancer Detection - Login</title>
+
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+
+    <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+
+        <!-- HEADER -->
+        <div class="text-center mb-8">
+            <div class="inline-block p-3 bg-indigo-100 rounded-full mb-4">
+                <i data-lucide="shield-check" class="w-12 h-12 text-indigo-600"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Breast Cancer Detection</h1>
+            <p class="text-gray-600">AI-Powered Medical Imaging Analysis</p>
+        </div>
+
+        <!-- TAB SWITCH -->
+        <div class="flex mb-6 bg-gray-100 rounded-lg p-1">
+            <button id="login-tab"
+                class="flex-1 py-2 rounded-md transition-colors bg-white text-indigo-600 shadow">
+                Login
+            </button>
+
+            <button id="signup-tab"
+                class="flex-1 py-2 rounded-md transition-colors text-gray-600">
+                Sign Up
+            </button>
+        </div>
+
+        <!-- LOGIN FORM -->
+        <div id="login-form" class="flex flex-col gap-5">
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                <div class="relative">
+                    <i data-lucide="user" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5"></i>
+                    <input id="login-username"
+                        type="text"
+                        class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Enter username">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                <div class="relative">
+                    <i data-lucide="lock" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5"></i>
+                    <input id="login-password"
+                        type="password"
+                        class="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Enter password">
+                    <button type="button" onclick="togglePassword('login-password')"
+                        class="absolute right-3 top-1/2 -translate-y-1/2">
+                        <i data-lucide="eye" class="text-gray-400 w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div id="login-error"
+                 class="error-message bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm hidden"></div>
+
+            <button onclick="handleLogin()"
+                class="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 font-semibold">
+                Login
+            </button>
+
+            <div class="p-4 bg-blue-50 rounded-lg text-center text-sm text-gray-700">
+                <strong>Demo Account:</strong><br>
+                Username: demo | Password: demo123
+            </div>
+        </div>
+
+        <!-- SIGNUP FORM -->
+        <div id="signup-form" class="flex flex-col gap-5 hidden">
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                <div class="relative">
+                    <i data-lucide="user"
+                       class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5"></i>
+                    <input id="signup-username"
+                        type="text"
+                        class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Choose a username">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                <div class="relative">
+                    <i data-lucide="mail"
+                       class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5"></i>
+                    <input id="signup-email"
+                        type="email"
+                        class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Enter your email">
+                </div>
+            </div>
+
+            <!-- PASSWORD -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                <div class="relative">
+                    <i data-lucide="lock"
+                       class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5"></i>
+
+                    <input id="signup-password"
+                        type="password"
+                        class="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Create a password">
+
+                    <button type="button" onclick="togglePassword('signup-password')"
+                        class="absolute right-3 top-1/2 -translate-y-1/2">
+                        <i data-lucide="eye" class="text-gray-400 w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- PASSWORD STRENGTH -->
+            <div class="password-strength">
+                <div class="strength-bar">
+                    <div id="strength-bar-fill" class="strength-bar-fill"></div>
+                </div>
+                <span id="strength-text" class="strength-text"></span>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
+                <div class="relative">
+                    <i data-lucide="lock"
+                       class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5"></i>
+
+                    <input id="signup-confirm"
+                        type="password"
+                        class="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Confirm your password">
+
+                    <button type="button" onclick="togglePassword('signup-confirm')"
+                        class="absolute right-3 top-1/2 -translate-y-1/2">
+                        <i data-lucide="eye" class="text-gray-400 w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div id="signup-error"
+                 class="error-message bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm hidden"></div>
+
+            <div id="signup-success"
+                 class="success-message bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm hidden"></div>
+
+            <button onclick="handleSignUp()"
+                class="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 font-semibold">
+                Create Account
+            </button>
+
+        </div>
+
+    </div>
+
+    <!-- Custom JS -->
+    <script src="/frontend/script/auth-script.js"></script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            lucide.createIcons();
+        });
+    </script>
+
+</body>
+</html>
