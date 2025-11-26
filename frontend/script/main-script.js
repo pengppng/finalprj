@@ -6,14 +6,33 @@ let uploadedImageData = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     const savedUser = localStorage.getItem('currentUser');
-    if (!savedUser) {
+    const loginTime = localStorage.getItem('loginTime');
+
+    const LOGIN_EXPIRE_DAYS = 7;  
+    const MAX_AGE = LOGIN_EXPIRE_DAYS * 24 * 60 * 60 * 1000;
+
+    if (!savedUser || !loginTime) {
         window.location.href = 'login.html';
         return;
     }
-    
+
+    // Check expiration
+    const now = Date.now();
+    const elapsed = now - Number(loginTime);
+
+    if (elapsed > MAX_AGE) {
+        // Login expired
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('loginTime');
+        window.location.href = 'login.html';
+        return;
+    }
+
+    // Refresh username
     currentUser = JSON.parse(savedUser);
     document.getElementById('username-display').textContent = currentUser.username;
-    
+
+    // Tutorial popup (same)
     const hasSeenTutorial = sessionStorage.getItem('hasSeenTutorial');
     if (!hasSeenTutorial) {
         setTimeout(() => {
@@ -23,9 +42,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+
 function handleLogout() {
     if (confirm('Are you sure you want to logout?')) {
         localStorage.removeItem('currentUser');
+        localStorage.removeItem('loginTime');
         sessionStorage.removeItem('hasSeenTutorial');
         window.location.href = 'login.html';
     }

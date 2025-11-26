@@ -140,6 +140,7 @@ async function handleLogin() {
                 username: data.username,
                 email: data.email
             }));
+            localStorage.setItem('loginTime', Date.now().toString()); // Save login time (for auto-expiration)
             window.location.href = 'index.html';
         } else {
             showError(errorDiv, data.error || 'Login failed');
