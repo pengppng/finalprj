@@ -82,7 +82,7 @@
 
 //             <div className="space-y-6">
 //               <div className="flex items-start space-x-4 group">
-//                 <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-xl flex items-center justify-center font-bold text-lg shadow-lg group-hover:scale-110 transition-transform">
+//                 <div className="shrink-0 w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-xl flex items-center justify-center font-bold text-lg shadow-lg group-hover:scale-110 transition-transform">
 //                   1
 //                 </div>
 //                 <div>
@@ -92,7 +92,7 @@
 //               </div>
 
 //               <div className="flex items-start space-x-4 group">
-//                 <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-xl flex items-center justify-center font-bold text-lg shadow-lg group-hover:scale-110 transition-transform">
+//                 <div className="shrink-0 w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-xl flex items-center justify-center font-bold text-lg shadow-lg group-hover:scale-110 transition-transform">
 //                   2
 //                 </div>
 //                 <div>
@@ -102,7 +102,7 @@
 //               </div>
 
 //               <div className="flex items-start space-x-4 group">
-//                 <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-xl flex items-center justify-center font-bold text-lg shadow-lg group-hover:scale-110 transition-transform">
+//                 <div className="shrink-0 w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-xl flex items-center justify-center font-bold text-lg shadow-lg group-hover:scale-110 transition-transform">
 //                   3
 //                 </div>
 //                 <div>
@@ -609,7 +609,7 @@ function TutorialModal({ onClose }) {
           <div className="space-y-6">
             {steps.map((step) => (
               <div key={step.number} className="flex items-start gap-4">
-                <div className="flex-shrink-0 w-10 h-10 bg-blue-600 text-white rounded-lg flex items-center justify-center font-bold">
+                <div className="shrink-0 w-10 h-10 bg-blue-600 text-white rounded-lg flex items-center justify-center font-bold">
                   {step.number}
                 </div>
                 <div>
@@ -627,7 +627,7 @@ function TutorialModal({ onClose }) {
           {/* Warning */}
           <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" />
               <p className="text-sm text-yellow-800">
                 <strong className="font-semibold">Important:</strong> This tool is for educational purposes only. Always consult qualified medical professionals.
               </p>
@@ -700,7 +700,7 @@ function UploadSection({ uploadedImage, isAnalyzing, error, onImageUpload, onAna
       {/* Error Message */}
       {error && (
         <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
           <p className="text-sm text-red-700">{error}</p>
         </div>
       )}
@@ -860,7 +860,7 @@ function Disclaimer() {
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
       <div className="flex items-start gap-3">
-        <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+        <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
         <p className="text-sm text-blue-900">
           <strong className="font-semibold">Medical Disclaimer:</strong> This analysis is for educational purposes only. Always consult qualified healthcare professionals for proper diagnosis and treatment.
         </p>

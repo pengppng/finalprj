@@ -45,7 +45,7 @@ export default function Home() {
   // Loading state
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>
@@ -55,7 +55,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4 relative overflow-hidden">
       
       {/* Animated Background Blobs */}
       <div className="absolute inset-0 overflow-hidden">
@@ -72,12 +72,12 @@ export default function Home() {
           {/* Animated Logo */}
           <div className="inline-block relative mb-6">
             <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full blur-lg opacity-50 animate-pulse"></div>
-            <div className="relative bg-gradient-to-br from-indigo-500 to-purple-600 p-4 rounded-2xl shadow-lg">
+            <div className="relative bg-linear-to-br from-indigo-500 to-purple-600 p-4 rounded-2xl shadow-lg">
               <Heart className="w-12 h-12 text-white" fill="white" />
             </div>
           </div>
 
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-3">
+          <h1 className="text-4xl font-bold bg-linear-to-br from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-3">
             Breast Cancer AI
           </h1>
           <p className="text-gray-600 flex items-center justify-center gap-2">
@@ -104,7 +104,7 @@ export default function Home() {
           className="group relative w-full flex items-center justify-center gap-3 py-4 mb-6 bg-white border-2 border-gray-200 rounded-xl hover:border-indigo-400 hover:shadow-lg transition-all duration-300 overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {/* Hover Effect */}
-          <div className="absolute inset-0 bg-gradient-to-r from-indigo-50 to-purple-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          <div className="absolute inset-0 bg-linear-to-br from-indigo-50 to-purple-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
           
           {/* Google Icon */}
           {!isLoading && (
@@ -143,19 +143,19 @@ export default function Home() {
         {/* Features */}
         <div className="space-y-3 mb-6">
           <div className="flex items-center gap-3 text-sm text-gray-600">
-            <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center shrink-0">
               <Shield className="w-4 h-4 text-green-600" />
             </div>
             <span>Secure OAuth 2.0 Authentication</span>
           </div>
           <div className="flex items-center gap-3 text-sm text-gray-600">
-            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
               <Sparkles className="w-4 h-4 text-blue-600" />
             </div>
             <span>AI-Powered Medical Analysis</span>
           </div>
           <div className="flex items-center gap-3 text-sm text-gray-600">
-            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
               <Heart className="w-4 h-4 text-purple-600" />
             </div>
             <span>HIPAA Compliant & Encrypted</span>
@@ -163,7 +163,7 @@ export default function Home() {
         </div>
 
         {/* Disclaimer */}
-        <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-xl p-4">
+        <div className="bg-linear-to-br from-yellow-50 to-orange-50 border border-yellow-200 rounded-xl p-4">
           <p className="text-xs text-yellow-800 text-center leading-relaxed">
             <strong className="font-semibold">Medical Disclaimer:</strong> This AI tool is for educational and research purposes only. Always consult qualified healthcare professionals for medical diagnosis and treatment.
           </p>
