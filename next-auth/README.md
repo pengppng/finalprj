@@ -41,6 +41,7 @@ npm install next-auth
 
 file add
 .env.local
+```bash
 # Google OAuth Credentials
 GOOGLE_CLIENT_ID=18132507548-jo29u5akonfk2chdmi7bg4vc065k2ail.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=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
@@ -54,9 +55,11 @@ NEXT_PUBLIC_PYTHON_API_URL=http://localhost:5000
 
 # Database URL
 DATABASE_URL="postgresql://myuser:mypassword@localhost:5432/mydb?schema=public"
+```
 
+file add .env
 
-file add
+```bash
 # Environment variables declared in this file are NOT automatically loaded by Prisma.
 # Please add `import "dotenv/config";` to your `prisma.config.ts` file, or use the Prisma CLI with Bun
 # to load environment variables from .env files: https://pris.ly/prisma-config-env-vars.
@@ -69,3 +72,5 @@ file add
 # one found in a remote Prisma Postgres URL, does not contain any sensitive information.
 
 DATABASE_URL="prisma+postgres://localhost:51213/?api_key=eyJkYXRhYmFzZVVybCI6InBvc3RncmVzOi8vcG9zdGdyZXM6cG9zdGdyZXNAbG9jYWxob3N0OjUxMjE0L3RlbXBsYXRlMT9zc2xtb2RlPWRpc2FibGUmY29ubmVjdGlvbl9saW1pdD0xJmNvbm5lY3RfdGltZW91dD0wJm1heF9pZGxlX2Nvbm5lY3Rpb25fbGlmZXRpbWU9MCZwb29sX3RpbWVvdXQ9MCZzaW5nbGVfdXNlX2Nvbm5lY3Rpb25zPXRydWUmc29ja2V0X3RpbWVvdXQ9MCIsIm5hbWUiOiJkZWZhdWx0Iiwic2hhZG93RGF0YWJhc2VVcmwiOiJwb3N0Z3JlczovL3Bvc3RncmVzOnBvc3RncmVzQGxvY2FsaG9zdDo1MTIxNS90ZW1wbGF0ZTE_c3NsbW9kZT1kaXNhYmxlJmNvbm5lY3Rpb25fbGltaXQ9MSZjb25uZWN0X3RpbWVvdXQ9MCZtYXhfaWRsZV9jb25uZWN0aW9uX2xpZmV0aW1lPTAmcG9vbF90aW1lb3V0PTAmc2luZ2xlX3VzZV9jb25uZWN0aW9ucz10cnVlJnNvY2tldF90aW1lb3V0PTAifQ"
+```
+
