@@ -1,0 +1,93 @@
+[
+  {
+    "id": "20251212_104200",
+    "timestamp": "2025-12-12T10:42:00.798695",
+    "filename": "20251212_104200_Screenshot 2568-12-11 at 21.51.49.png",
+    "prediction": "Malignant",
+    "confidence": 51.75674662164679,
+    "details": {
+      "Mass Detected": true,
+      "Calcification": false,
+      "Asymmetry": true,
+      "Architectural Distortion": false
+    }
+  },
+  {
+    "id": "20251212_104542",
+    "timestamp": "2025-12-12T10:45:42.968091",
+    "filename": "20251212_104542_benign (100)-rotated1.jpg",
+    "prediction": "Benign",
+    "confidence": 85.80606445002189,
+    "details": {
+      "Mass Detected": true,
+      "Calcification": true,
+      "Asymmetry": false,
+      "Architectural Distortion": false
+    }
+  },
+  {
+    "id": "20251212_104802",
+    "timestamp": "2025-12-12T10:48:02.992258",
+    "filename": "20251212_104802_benign (100)-rotated1.jpg",
+    "prediction": "Benign",
+    "confidence": 73.27168166362279,
+    "details": {
+      "Mass Detected": false,
+      "Calcification": true,
+      "Asymmetry": false,
+      "Architectural Distortion": false
+    }
+  },
+  {
+    "id": "20251212_105205",
+    "timestamp": "2025-12-12T10:52:05.176706",
+    "filename": "20251212_105205_benign (100)-rotated1.jpg",
+    "prediction": "Malignant",
+    "confidence": 71.42702500276724,
+    "details": {
+      "Mass Detected": false,
+      "Calcification": true,
+      "Asymmetry": true,
+      "Architectural Distortion": false
+    }
+  },
+  {
+    "id": "20251212_105216",
+    "timestamp": "2025-12-12T10:52:16.633647",
+    "filename": "20251212_105216_benign (100)-rotated1.jpg",
+    "prediction": "Malignant",
+    "confidence": 78.7703366190813,
+    "details": {
+      "Mass Detected": true,
+      "Calcification": true,
+      "Asymmetry": false,
+      "Architectural Distortion": false
+    }
+  },
+  {
+    "id": "20251212_105222",
+    "timestamp": "2025-12-12T10:52:22.925901",
+    "filename": "20251212_105222_benign (100)-rotated1.jpg",
+    "prediction": "Malignant",
+    "confidence": 74.30315157715496,
+    "details": {
+      "Mass Detected": true,
+      "Calcification": true,
+      "Asymmetry": true,
+      "Architectural Distortion": true
+    }
+  },
+  {
+    "id": "20251212_111238",
+    "timestamp": "2025-12-12T11:12:38.316846",
+    "filename": "20251212_111238_benign (100)-rotated1.jpg",
+    "prediction": "Malignant",
+    "confidence": 79.33739681082204,
+    "details": {
+      "Mass Detected": true,
+      "Calcification": false,
+      "Asymmetry": true,
+      "Architectural Distortion": false
+    }
+  }
+]
