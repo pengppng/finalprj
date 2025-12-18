@@ -71,7 +71,7 @@ export default function Home() {
         <div className="text-center mb-10">
           {/* Animated Logo */}
           <div className="inline-block relative mb-6">
-            <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full blur-lg opacity-50 animate-pulse"></div>
+            <div className="absolute inset-0 bg-linear-to-r from-indigo-500 to-purple-500 rounded-full blur-lg opacity-50 animate-pulse"></div>
             <div className="relative bg-linear-to-br from-indigo-500 to-purple-600 p-4 rounded-2xl shadow-lg">
               <Heart className="w-12 h-12 text-white" fill="white" />
             </div>
@@ -89,7 +89,7 @@ export default function Home() {
         {/* Error Message */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm text-red-800 font-medium">Authentication Error</p>
               <p className="text-xs text-red-600 mt-1">{error}</p>

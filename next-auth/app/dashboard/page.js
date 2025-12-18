@@ -73,7 +73,7 @@ const BreastCancerApp = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-linear-to-br from-purple-50 via-blue-50 to-indigo-100">
       {/* Tutorial Modal */}
       {showTutorial && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -90,15 +90,15 @@ const BreastCancerApp = () => {
 
             <div className="space-y-6">
               <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0 w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center font-bold text-lg">1</div>
+                <div className="shrink-0 w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center font-bold text-lg">1</div>
                 <div>
                   <h3 className="font-semibold text-gray-800 mb-2 text-lg">Upload Medical Image</h3>
-                  <p className="text-gray-600">Click the upload area and select a mammogram or breast imaging file in JPEG or PNG format.</p>
+                  <p className="text-gray-600">Click the upload area and select a breast ultrasound imaging file in JPEG or PNG format.</p>
                 </div>
               </div>
 
               <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0 w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center font-bold text-lg">2</div>
+                <div className="shrink-0 w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center font-bold text-lg">2</div>
                 <div>
                   <h3 className="font-semibold text-gray-800 mb-2 text-lg">Analyze with AI</h3>
                   <p className="text-gray-600">Click the "Analyze Image" button to process the image using our AI model. This will take a few seconds.</p>
@@ -106,7 +106,7 @@ const BreastCancerApp = () => {
               </div>
 
               <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0 w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center font-bold text-lg">3</div>
+                <div className="shrink-0 w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center font-bold text-lg">3</div>
                 <div>
                   <h3 className="font-semibold text-gray-800 mb-2 text-lg">Review Results</h3>
                   <p className="text-gray-600">View the prediction (Malignant/Benign), confidence level, detailed analysis, and heatmap showing areas of interest.</p>
@@ -114,14 +114,14 @@ const BreastCancerApp = () => {
               </div>
 
               <div className="flex items-start space-x-4">
-                <div className="flex-shrink-0 w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center font-bold text-lg">4</div>
+                <div className="shrink-0 w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center font-bold text-lg">4</div>
                 <div>
                   <h3 className="font-semibold text-gray-800 mb-2 text-lg">Check History</h3>
                   <p className="text-gray-600">All your analyses are saved in the History section below for future reference.</p>
                 </div>
               </div>
 
-              <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-lg p-5">
+              <div className="bg-linear-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-lg p-5">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="w-6 h-6 text-yellow-600 shrink-0 mt-0.5" />
                   <div>
@@ -148,7 +148,7 @@ const BreastCancerApp = () => {
       <header className="bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-indigo-600">AI Breast Cancer Detection</h1>
+            <h1 className="text-2xl font-bold">AI Breast Cancer Detection</h1>
             <p className="text-sm text-gray-600">Medical Imaging Analysis System</p>
           </div>
           <button
@@ -173,14 +173,14 @@ const BreastCancerApp = () => {
               Upload Image
             </h2>
 
-            <label className="flex flex-col items-center justify-center w-full h-80 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-indigo-500 hover:bg-indigo-50/30 transition-all group">
+            <label className="flex col items-center justify-center w-full h-80 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-indigo-500 hover:bg-indigo-50/30 transition-all group">
               {preview ? (
-                <div className="w-full h-full p-4 flex flex-col items-center justify-center">
+                <div className="w-full h-full p-4 flex col items-center justify-center">
                   <img src={preview} alt="Preview" className="max-h-full object-contain rounded-lg" />
                   <p className="text-sm text-gray-500 mt-3">Click to change image</p>
                 </div>
               ) : (
-                <div className="flex flex-col items-center">
+                <div className="flex col items-center">
                   <div className="p-4 bg-indigo-100 rounded-full mb-4 group-hover:scale-110 transition-transform">
                     <FileImage size={48} className="text-indigo-600" />
                   </div>
@@ -205,8 +205,8 @@ const BreastCancerApp = () => {
             <button
               onClick={analyzeImage}
               disabled={!uploadedImage || isAnalyzing}
-              className="w-full mt-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 rounded-xl font-semibold hover:from-indigo-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:transform-none"
-            >
+              className="w-full mt-6 bg-linear-to-r from-indigo-600 to-purple-600 text-white py-4 rounded-xl font-semibold hover:from-indigo-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:transform-none"
+            >gradient
               {isAnalyzing ? (
                 <span className="flex items-center justify-center gap-2">
                   <Loader className="animate-spin" size={20} />
@@ -285,7 +285,7 @@ const BreastCancerApp = () => {
                   </div>
                 )}
 
-                <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-xl p-5">
+                <div className="bg-linear-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-xl p-5">
                   <div className="flex items-start gap-3">
                     <AlertCircle className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5" />
                     <p className="text-sm text-yellow-900">
@@ -326,7 +326,7 @@ const BreastCancerApp = () => {
           {showHistory && history.length > 0 && (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {history.map((item) => (
-                <div key={item.id} className="border-2 border-gray-200 rounded-xl overflow-hidden hover:shadow-xl transition-all hover:border-indigo-300 bg-gradient-to-br from-white to-gray-50">
+                <div key={item.id} className="border-2 border-gray-200 rounded-xl overflow-hidden hover:shadow-xl transition-all hover:border-indigo-300 bg-linear-to-br from-white to-gray-50">
                   <img
                     src={item.image}
                     alt="History"
