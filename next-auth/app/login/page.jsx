@@ -73,14 +73,22 @@
 //   );
 // }
 // console.log("CLIENT ID:", process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
+
 "use client";
+
 import { GoogleLogin } from "@react-oauth/google";
 
 export default function Test() {
   return (
-    <GoogleLogin
-      onSuccess={(res) => console.log(res)}
-      onError={() => console.log("ERROR")}
-    />
+    <div style={{ padding: 40 }}>
+      <GoogleLogin
+        onSuccess={(res) => {
+          console.log("Google Login Success:", res);
+        }}
+        onError={() => {
+          console.log("Google Login Error");
+        }}
+      />
+    </div>
   );
 }

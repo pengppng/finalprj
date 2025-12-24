@@ -1,4 +1,3 @@
-// "use client";
 // import "./globals.css";
 // import { SessionProvider } from "next-auth/react";
 // // export default function RootLayout({ children }) {
@@ -20,9 +19,9 @@
 //   );
 // }
 
-// ✅ app/layout.js (Server Component)
+
 import "./globals.css";
-import Providers from "./SessionProvider";
+import Providers from "./provider";
 
 export const metadata = {
   title: "Breast Cancer AI Detection",
@@ -32,7 +31,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className="antialiased">
+      <body>
         <Providers>{children}</Providers>
       </body>
     </html>

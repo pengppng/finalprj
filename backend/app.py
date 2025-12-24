@@ -11,7 +11,47 @@ import json
 
 # FLASK SETUP
 app = Flask(__name__)
-CORS(app)
+# CORS(app)
+CORS(
+    app,
+    supports_credentials=True,
+    origins=["http://localhost:3000"]
+)
+
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+
+@app.route("/auth/google", methods=["POST"])
+def google_auth():
+    data = request.get_json()
+
+    if not data or "token" not in data:
+        return jsonify({"error": "Missing token"}), 400
+
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            data["token"],
+            google_requests.Request(),
+            GOOGLE_CLIENT_ID
+        )
+
+        user = {
+            "google_id": idinfo["sub"],
+            "email": idinfo["email"],
+            "name": idinfo.get("name"),
+            "picture": idinfo.get("picture"),
+        }
+
+        return jsonify({
+            "status": "success",
+            "user": user
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 401
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -46,7 +86,9 @@ def load_model():
         model = tf.keras.models.load_model(
             MODEL_PATH,
             custom_objects={"dice_coef": dice_coef},
-            compile=False
+            compile=False,
+            safe_mode=False
+
         )
 
         print("✅ Keras model loaded successfully")
