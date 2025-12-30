@@ -63,26 +63,24 @@ def google_auth():
     google_id = idinfo["sub"]
     email = idinfo["email"]
 
-    user_payload = {
-        "google_id": google_id,
-        "email": email,
-        "firstname": idinfo.get("given_name"),
-        "lastname": idinfo.get("family_name"),
-    }
+    res = supabase.table("users").select("*").eq("email", email).execute()
 
-    # ✅ upsert by google_id (แก้ duplicate email)
-    supabase.table("users") \
-        .upsert(user_payload, on_conflict="google_id") \
-        .execute()
-
-    # ดึงข้อมูล profile
-    res = supabase.table("users") \
-        .select("gender, birthdate, is_doctor") \
-        .eq("google_id", google_id) \
-        .single() \
-        .execute()
-
-    user_db = res.data or {}
+    if res.data:
+        user = res.data[0]
+        supabase.table("users").update({
+            "google_id": google_id,
+            "firstname": idinfo.get("given_name"),
+            "lastname": idinfo.get("family_name"),
+        }).eq("email", email).execute()
+        user_db = user
+    else:
+        insert_res = supabase.table("users").insert({
+            "email": email,
+            "google_id": google_id,
+            "firstname": idinfo.get("given_name"),
+            "lastname": idinfo.get("family_name"),
+        }).execute()
+        user_db = insert_res.data[0]
 
     profile_completed = all([
         user_db.get("gender"),
@@ -92,7 +90,8 @@ def google_auth():
 
     session["user"] = {
         "google_id": google_id,
-        "email": email
+        "email": email,
+        "user_id": user_db["id"]
     }
     session["profile_completed"] = profile_completed
 
@@ -100,7 +99,6 @@ def google_auth():
         "status": "success",
         "profile_completed": profile_completed
     })
-
 
 # CURRENT USER
 @app.route("/me")
@@ -113,8 +111,7 @@ def me():
         "profile_completed": session.get("profile_completed", False)
     })
 
-
-# PROFILE (บังคับกรอก)
+# PROFILE
 @app.route("/profile", methods=["POST"])
 def profile():
     if "user" not in session:
@@ -136,18 +133,16 @@ def profile():
     session["profile_completed"] = True
     return jsonify({"status": "saved"})
 
-
 # LOGOUT
 @app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
     return jsonify({"status": "logged_out"})
 
-
 # PATHS
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HEATMAP_FOLDER = os.path.join(BASE_DIR, "heatmaps")
-MODEL_PATH = os.path.join(BASE_DIR, "models", "breast_cancer_model.h5")
+MODEL_PATH = os.path.join(BASE_DIR, "models", "saved_model")
 
 os.makedirs(HEATMAP_FOLDER, exist_ok=True)
 
@@ -160,17 +155,13 @@ def dice_coef(y_true, y_pred, smooth=1):
         K.sum(y_true_f) + K.sum(y_pred_f) + smooth
     )
 
-def load_model():
-    if not os.path.exists(MODEL_PATH):
-        return None
-    return tf.keras.models.load_model(
-        MODEL_PATH,
-        custom_objects={"dice_coef": dice_coef},
-        compile=False,
-        safe_mode=False
-    )
-
-model = load_model()
+print("🔥 Loading SavedModel...")
+model = tf.keras.models.load_model(
+    MODEL_PATH,
+    custom_objects={"dice_coef": dice_coef},
+    compile=False
+)
+print("✅ Model loaded")
 
 # IMAGE UTILS
 def preprocess_image(image, size=256):
@@ -193,9 +184,10 @@ def generate_overlay(image, prediction):
 def health():
     return jsonify({
         "status": "ok",
-        "model_loaded": model is not None
+        "model_loaded": model is not None,
+        "input_shape": model.input_shape,
+        "output_shape": model.output_shape
     })
-
 
 # PREDICT
 @app.route("/api/predict", methods=["POST"])
@@ -206,60 +198,41 @@ def predict():
     if not session.get("profile_completed"):
         return jsonify({"error": "Profile not completed"}), 403
 
-    if model is None:
-        return jsonify({"error": "Model not loaded"}), 500
-
     if "image" not in request.files:
         return jsonify({"error": "No image uploaded"}), 400
 
-    try:
-        image = Image.open(request.files["image"]).convert("RGB")
-    except:
-        return jsonify({"error": "Invalid image"}), 400
-
-    save_image = request.form.get("save_image") == "true"
+    image = Image.open(request.files["image"]).convert("RGB")
 
     img_input = preprocess_image(image)
     prediction = model.predict(img_input)[0]
+
     pixel_confidence = float(np.mean(prediction) * 100)
 
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-
     mask_path = f"{ts}_mask.png"
     overlay_path = f"{ts}_overlay.jpg"
 
-    cv2.imwrite(os.path.join(HEATMAP_FOLDER, mask_path), (prediction > 0.5) * 255)
+    cv2.imwrite(
+        os.path.join(HEATMAP_FOLDER, mask_path),
+        (prediction > 0.5).astype(np.uint8) * 255
+    )
+
     cv2.imwrite(
         os.path.join(HEATMAP_FOLDER, overlay_path),
         generate_overlay(image, prediction)
     )
 
-    result = {
+    return jsonify({
         "prediction": "Malignant" if pixel_confidence > 50 else "Benign",
         "pixel_confidence": pixel_confidence,
         "mask": f"/api/heatmaps/{mask_path}",
         "overlay": f"/api/heatmaps/{overlay_path}"
-    }
-
-    # ✅ save history เฉพาะตอนกด
-    if save_image:
-        supabase.table("prediction_history").insert({
-            "google_id": session["user"]["google_id"],
-            "email": session["user"]["email"],
-            "prediction": result["prediction"],
-            "pixel_confidence": pixel_confidence,
-            "mask_url": result["mask"],
-            "overlay_url": result["overlay"]
-        }).execute()
-
-    return jsonify(result)
-
+    })
 
 # STATIC
 @app.route("/api/heatmaps/<filename>")
 def get_heatmap(filename):
     return send_from_directory(HEATMAP_FOLDER, filename)
-
 
 # RUN
 if __name__ == "__main__":
