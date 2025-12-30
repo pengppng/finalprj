@@ -11,3 +11,4 @@ export default function Providers({ children }) {
     </GoogleOAuthProvider>
   );
 }
+console.log("GOOGLE CLIENT ID:", process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);

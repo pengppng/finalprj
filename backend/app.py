@@ -1,69 +1,150 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
 from PIL import Image
 import numpy as np
+
+from dotenv import load_dotenv
+load_dotenv(".env.local")
+
 import os
 from datetime import datetime
 import cv2
 import tensorflow as tf
+from supabase import create_client, Client
 from tensorflow.keras import backend as K
-import json
+
+
 
 # FLASK SETUP
 app = Flask(__name__)
-# CORS(app)
+app.secret_key = "dev-secret-key"
+
 CORS(
     app,
     supports_credentials=True,
     origins=["http://localhost:3000"]
 )
 
+# SUPABASE
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+supabase: Client = create_client(
+    SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY
+)
+
+# GOOGLE AUTH
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+print("GOOGLE_CLIENT_ID =", GOOGLE_CLIENT_ID)
 
 @app.route("/auth/google", methods=["POST"])
 def google_auth():
     data = request.get_json()
-
     if not data or "token" not in data:
         return jsonify({"error": "Missing token"}), 400
 
-    try:
-        idinfo = id_token.verify_oauth2_token(
-            data["token"],
-            google_requests.Request(),
-            GOOGLE_CLIENT_ID
-        )
+    idinfo = id_token.verify_oauth2_token(
+        data["token"],
+        google_requests.Request(),
+        GOOGLE_CLIENT_ID
+    )
 
-        user = {
-            "google_id": idinfo["sub"],
-            "email": idinfo["email"],
-            "name": idinfo.get("name"),
-            "picture": idinfo.get("picture"),
-        }
+    google_id = idinfo["sub"]
+    email = idinfo["email"]
 
-        return jsonify({
-            "status": "success",
-            "user": user
-        })
+    user_payload = {
+        "google_id": google_id,
+        "email": email,
+        "firstname": idinfo.get("given_name"),
+        "lastname": idinfo.get("family_name"),
+    }
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 401
+    # 🔹 upsert user
+    supabase.table("users").upsert(user_payload).execute()
+
+    # 🔹 ดึง user ล่าสุดจาก DB
+    res = supabase.table("users") \
+        .select("gender, birthdate, is_doctor") \
+        .eq("google_id", google_id) \
+        .single() \
+        .execute()
+
+    user_db = res.data
+
+    profile_completed = all([
+        user_db.get("gender"),
+        user_db.get("birthdate"),
+        user_db.get("is_doctor") is not None
+    ])
+
+    session["user"] = {
+        "google_id": google_id,
+        "email": email
+    }
+    session["profile_completed"] = profile_completed
+
+    return jsonify({
+        "status": "success",
+        "profile_completed": profile_completed
+    })
 
 
+
+@app.route("/me")
+def me():
+    if "user" not in session:
+        return jsonify({"error": "unauthorized"}), 401
+
+    return jsonify({
+        "user": session["user"],
+        "profile_completed": session.get("profile_completed", False)
+    })
+
+
+# PROFILE (IS_DOCTOR LOGIC)
+@app.route("/profile", methods=["POST"])
+def profile():
+    if "user" not in session:
+        return jsonify({"error": "unauthorized"}), 401
+
+    data = request.json
+
+    if not data.get("gender") or not data.get("date_of_birth"):
+        return jsonify({"error": "Incomplete profile"}), 400
+
+    is_doctor = True if data.get("is_doctor") == 1 else False
+
+    supabase.table("users").update({
+        "gender": data["gender"],
+        "birthdate": data["date_of_birth"],
+        "is_doctor": is_doctor
+    }).eq("google_id", session["user"]["google_id"]).execute()
+
+    session["profile_completed"] = True
+    return jsonify({"status": "saved"})
+
+
+# Logout
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return jsonify({"status": "logged_out"})
+
+
+# PATHS
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 HEATMAP_FOLDER = os.path.join(BASE_DIR, "heatmaps")
 MODEL_PATH = os.path.join(BASE_DIR, "models", "breast_cancer_model.h5")
-HISTORY_FILE = os.path.join(BASE_DIR, "predictions_history.json")
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(HEATMAP_FOLDER, exist_ok=True)
 
-# CUSTOM METRIC (ถ้ามี)
+# METRICS
 def dice_coef(y_true, y_pred, smooth=1):
     y_true_f = K.flatten(y_true)
     y_pred_f = K.flatten(y_pred)
@@ -75,142 +156,89 @@ def dice_coef(y_true, y_pred, smooth=1):
 # LOAD MODEL
 def load_model():
     try:
-        print("🔧 Using TensorFlow backend")
-        print(f"🔍 Model path: {MODEL_PATH}")
-        print(f"📁 Exists? {os.path.exists(MODEL_PATH)}")
-
         if not os.path.exists(MODEL_PATH):
-            print("❌ Model file not found")
             return None
 
-        model = tf.keras.models.load_model(
+        return tf.keras.models.load_model(
             MODEL_PATH,
             custom_objects={"dice_coef": dice_coef},
             compile=False,
             safe_mode=False
-
         )
-
-        print("✅ Keras model loaded successfully")
-        return model
-
-    except Exception as e:
-        print(f"❌ Error loading model: {e}")
+    except:
         return None
 
 model = load_model()
 
-# IMAGE PREPROCESSING
+# IMAGE PROCESS
 def preprocess_image(image, size=256):
     image = image.resize((size, size))
     img = np.array(image)
-
-    if img.ndim == 2:  # grayscale
-        img = np.stack([img]*3, axis=-1)
-
-    img = img / 255.0
-    img = np.expand_dims(img, axis=0)
-    return img
-
-# SIMPLE HEATMAP (ACTIVATION MAP)
-def generate_heatmap(image, prediction):
-    img = np.array(image)
     if img.ndim == 2:
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+        img = np.stack([img] * 3, axis=-1)
+    img = img / 255.0
+    return np.expand_dims(img, axis=0)
 
-    heatmap = np.uint8(255 * prediction)
-    heatmap = cv2.resize(heatmap, (img.shape[1], img.shape[0]))
-    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+def generate_overlay(image, prediction):
+    img = np.array(image)
+    mask = np.uint8(prediction * 255)
+    mask = cv2.resize(mask, (img.shape[1], img.shape[0]))
+    heatmap = cv2.applyColorMap(mask, cv2.COLORMAP_JET)
+    return cv2.addWeighted(img, 0.6, heatmap, 0.4, 0)
 
-    overlay = cv2.addWeighted(img, 0.6, heatmap, 0.4, 0)
-    return overlay
-
-# HISTORY
-def load_history():
-    if os.path.exists(HISTORY_FILE):
-        with open(HISTORY_FILE, "r") as f:
-            return json.load(f)
-    return []
-
-def save_history(record):
-    history = load_history()
-    history.append(record)
-    with open(HISTORY_FILE, "w") as f:
-        json.dump(history, f, indent=2)
-
-# ROUTES
-@app.route("/health", methods=["GET"])
+# HEALTH
+@app.route("/health")
 def health():
-    return jsonify({
-        "status": "ok",
-        "model_loaded": model is not None
-    })
+    return jsonify({"status": "ok", "model_loaded": model is not None})
 
+# PREDICT + SAVE HISTORY
 @app.route("/api/predict", methods=["POST"])
 def predict():
+    if "user" not in session:
+        return jsonify({"error": "unauthorized"}), 401
+
     if "image" not in request.files:
         return jsonify({"error": "No image uploaded"}), 400
 
-    file = request.files["image"]
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{timestamp}_{file.filename}"
-
-    img_path = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(img_path)
-
-    image = Image.open(img_path).convert("RGB")
+    image = Image.open(request.files["image"]).convert("RGB")
     img_input = preprocess_image(image)
 
-    if model is None:
-        return jsonify({"error": "Model not loaded"}), 500
+    prediction = model.predict(img_input)[0]
+    pixel_confidence = float(np.mean(prediction) * 100)
 
-    prediction = model.predict(img_input)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # 🔹 รองรับทั้ง segmentation และ classification
-    score = float(np.mean(prediction))
-    is_malignant = score > 0.5
+    mask_path = f"{ts}_mask.png"
+    overlay_path = f"{ts}_overlay.jpg"
 
-    heatmap = generate_heatmap(image, prediction[0])
-    heatmap_name = f"{timestamp}_heatmap.jpg"
-    heatmap_path = os.path.join(HEATMAP_FOLDER, heatmap_name)
-    cv2.imwrite(heatmap_path, heatmap)
+    cv2.imwrite(os.path.join(HEATMAP_FOLDER, mask_path), (prediction > 0.5) * 255)
+    cv2.imwrite(os.path.join(HEATMAP_FOLDER, overlay_path),
+                generate_overlay(image, prediction))
 
-    response = {
-        "prediction": "Malignant" if is_malignant else "Benign",
-        "confidence": score * 100 if is_malignant else (1-score) * 100,
-        "raw_score": score,
-        "image": f"/api/images/{filename}",
-        "heatmap": f"/api/heatmaps/{heatmap_name}"
+    result = {
+        "prediction": "Malignant" if pixel_confidence > 50 else "Benign",
+        "pixel_confidence": pixel_confidence,
+        "mask": f"/api/heatmaps/{mask_path}",
+        "overlay": f"/api/heatmaps/{overlay_path}"
     }
 
-    save_history({
-        "id": timestamp,
-        "prediction": response["prediction"],
-        "confidence": response["confidence"],
-        "time": datetime.now().isoformat()
-    })
+    # 🔹 SAVE TO SUPABASE
+    supabase.table("prediction_history").insert({
+        "google_id": session["user"]["google_id"],
+        "email": session["user"]["email"],
+        "prediction": result["prediction"],
+        "pixel_confidence": pixel_confidence,
+        "mask_url": result["mask"],
+        "overlay_url": result["overlay"]
+    }).execute()
 
-    return jsonify(response)
+    return jsonify(result)
 
-@app.route("/api/images/<filename>")
-def get_image(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
-
+# STATIC
 @app.route("/api/heatmaps/<filename>")
 def get_heatmap(filename):
     return send_from_directory(HEATMAP_FOLDER, filename)
 
-@app.route("/api/history")
-def history():
-    return jsonify(load_history())
-
 # RUN
 if __name__ == "__main__":
-    print("\n" + "="*60)
-    print("🏥 Breast Cancer Detection API - TensorFlow Version")
-    print("="*60)
-    print("📡 http://localhost:5000")
-    print(f"🤖 Model loaded: {model is not None}")
-    print("="*60 + "\n")
-
     app.run(host="0.0.0.0", port=5000, debug=True)
