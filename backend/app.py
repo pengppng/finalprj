@@ -2,22 +2,25 @@ from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
 from PIL import Image
 import numpy as np
-
-from dotenv import load_dotenv
-load_dotenv(".env.local")
-
 import os
 from datetime import datetime
 import cv2
 import tensorflow as tf
+from dotenv import load_dotenv
 from supabase import create_client, Client
 from tensorflow.keras import backend as K
 
-
+# ENV
+load_dotenv(".env.local")
 
 # FLASK SETUP
 app = Flask(__name__)
 app.secret_key = "dev-secret-key"
+
+app.config.update(
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_HTTPONLY=True,
+)
 
 CORS(
     app,
@@ -41,17 +44,21 @@ from google.auth.transport import requests as google_requests
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 print("GOOGLE_CLIENT_ID =", GOOGLE_CLIENT_ID)
 
+# AUTH GOOGLE
 @app.route("/auth/google", methods=["POST"])
 def google_auth():
     data = request.get_json()
     if not data or "token" not in data:
         return jsonify({"error": "Missing token"}), 400
 
-    idinfo = id_token.verify_oauth2_token(
-        data["token"],
-        google_requests.Request(),
-        GOOGLE_CLIENT_ID
-    )
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            data["token"],
+            google_requests.Request(),
+            GOOGLE_CLIENT_ID
+        )
+    except Exception:
+        return jsonify({"error": "Invalid Google token"}), 401
 
     google_id = idinfo["sub"]
     email = idinfo["email"]
@@ -63,17 +70,19 @@ def google_auth():
         "lastname": idinfo.get("family_name"),
     }
 
-    # 🔹 upsert user
-    supabase.table("users").upsert(user_payload).execute()
+    # ✅ upsert by google_id (แก้ duplicate email)
+    supabase.table("users") \
+        .upsert(user_payload, on_conflict="google_id") \
+        .execute()
 
-    # 🔹 ดึง user ล่าสุดจาก DB
+    # ดึงข้อมูล profile
     res = supabase.table("users") \
         .select("gender, birthdate, is_doctor") \
         .eq("google_id", google_id) \
         .single() \
         .execute()
 
-    user_db = res.data
+    user_db = res.data or {}
 
     profile_completed = all([
         user_db.get("gender"),
@@ -93,7 +102,7 @@ def google_auth():
     })
 
 
-
+# CURRENT USER
 @app.route("/me")
 def me():
     if "user" not in session:
@@ -105,13 +114,13 @@ def me():
     })
 
 
-# PROFILE (IS_DOCTOR LOGIC)
+# PROFILE (บังคับกรอก)
 @app.route("/profile", methods=["POST"])
 def profile():
     if "user" not in session:
         return jsonify({"error": "unauthorized"}), 401
 
-    data = request.json
+    data = request.json or {}
 
     if not data.get("gender") or not data.get("date_of_birth"):
         return jsonify({"error": "Incomplete profile"}), 400
@@ -128,7 +137,7 @@ def profile():
     return jsonify({"status": "saved"})
 
 
-# Logout
+# LOGOUT
 @app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
@@ -137,14 +146,12 @@ def logout():
 
 # PATHS
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 HEATMAP_FOLDER = os.path.join(BASE_DIR, "heatmaps")
 MODEL_PATH = os.path.join(BASE_DIR, "models", "breast_cancer_model.h5")
 
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(HEATMAP_FOLDER, exist_ok=True)
 
-# METRICS
+# MODEL
 def dice_coef(y_true, y_pred, smooth=1):
     y_true_f = K.flatten(y_true)
     y_pred_f = K.flatten(y_pred)
@@ -153,24 +160,19 @@ def dice_coef(y_true, y_pred, smooth=1):
         K.sum(y_true_f) + K.sum(y_pred_f) + smooth
     )
 
-# LOAD MODEL
 def load_model():
-    try:
-        if not os.path.exists(MODEL_PATH):
-            return None
-
-        return tf.keras.models.load_model(
-            MODEL_PATH,
-            custom_objects={"dice_coef": dice_coef},
-            compile=False,
-            safe_mode=False
-        )
-    except:
+    if not os.path.exists(MODEL_PATH):
         return None
+    return tf.keras.models.load_model(
+        MODEL_PATH,
+        custom_objects={"dice_coef": dice_coef},
+        compile=False,
+        safe_mode=False
+    )
 
 model = load_model()
 
-# IMAGE PROCESS
+# IMAGE UTILS
 def preprocess_image(image, size=256):
     image = image.resize((size, size))
     img = np.array(image)
@@ -189,20 +191,35 @@ def generate_overlay(image, prediction):
 # HEALTH
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok", "model_loaded": model is not None})
+    return jsonify({
+        "status": "ok",
+        "model_loaded": model is not None
+    })
 
-# PREDICT + SAVE HISTORY
+
+# PREDICT
 @app.route("/api/predict", methods=["POST"])
 def predict():
     if "user" not in session:
         return jsonify({"error": "unauthorized"}), 401
 
+    if not session.get("profile_completed"):
+        return jsonify({"error": "Profile not completed"}), 403
+
+    if model is None:
+        return jsonify({"error": "Model not loaded"}), 500
+
     if "image" not in request.files:
         return jsonify({"error": "No image uploaded"}), 400
 
-    image = Image.open(request.files["image"]).convert("RGB")
-    img_input = preprocess_image(image)
+    try:
+        image = Image.open(request.files["image"]).convert("RGB")
+    except:
+        return jsonify({"error": "Invalid image"}), 400
 
+    save_image = request.form.get("save_image") == "true"
+
+    img_input = preprocess_image(image)
     prediction = model.predict(img_input)[0]
     pixel_confidence = float(np.mean(prediction) * 100)
 
@@ -212,8 +229,10 @@ def predict():
     overlay_path = f"{ts}_overlay.jpg"
 
     cv2.imwrite(os.path.join(HEATMAP_FOLDER, mask_path), (prediction > 0.5) * 255)
-    cv2.imwrite(os.path.join(HEATMAP_FOLDER, overlay_path),
-                generate_overlay(image, prediction))
+    cv2.imwrite(
+        os.path.join(HEATMAP_FOLDER, overlay_path),
+        generate_overlay(image, prediction)
+    )
 
     result = {
         "prediction": "Malignant" if pixel_confidence > 50 else "Benign",
@@ -222,22 +241,25 @@ def predict():
         "overlay": f"/api/heatmaps/{overlay_path}"
     }
 
-    # 🔹 SAVE TO SUPABASE
-    supabase.table("prediction_history").insert({
-        "google_id": session["user"]["google_id"],
-        "email": session["user"]["email"],
-        "prediction": result["prediction"],
-        "pixel_confidence": pixel_confidence,
-        "mask_url": result["mask"],
-        "overlay_url": result["overlay"]
-    }).execute()
+    # ✅ save history เฉพาะตอนกด
+    if save_image:
+        supabase.table("prediction_history").insert({
+            "google_id": session["user"]["google_id"],
+            "email": session["user"]["email"],
+            "prediction": result["prediction"],
+            "pixel_confidence": pixel_confidence,
+            "mask_url": result["mask"],
+            "overlay_url": result["overlay"]
+        }).execute()
 
     return jsonify(result)
+
 
 # STATIC
 @app.route("/api/heatmaps/<filename>")
 def get_heatmap(filename):
     return send_from_directory(HEATMAP_FOLDER, filename)
+
 
 # RUN
 if __name__ == "__main__":

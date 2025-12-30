@@ -1,14 +1,13 @@
-import "./next-auth/app/globals.css";
+"use client";
+
 import { GoogleOAuthProvider } from "@react-oauth/google";
 
-export default function RootLayout({ children }) {
+export default function LoginLayout({ children }) {
   return (
-    <html>
-      <body>
-        <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}>
-          {children}
-        </GoogleOAuthProvider>
-      </body>
-    </html>
+    <GoogleOAuthProvider
+      clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}
+    >
+      {children}
+    </GoogleOAuthProvider>
   );
 }

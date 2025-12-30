@@ -1,6 +1,11 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { Upload, Info, FileImage, History, Loader, AlertCircle, X } from 'lucide-react';
+import { useRouter } from "next/navigation";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
+
+
 
 const BreastCancerApp = () => {
   const [uploadedImage, setUploadedImage] = useState(null);
@@ -11,11 +16,24 @@ const BreastCancerApp = () => {
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [error, setError] = useState('');
-
+  const router = useRouter();
+  
   useEffect(() => {
-    const savedHistory = JSON.parse(localStorage.getItem('analysisHistory') || '[]');
-    setHistory(savedHistory);
+    fetch(`${API_BASE}/me`, { credentials: "include" })
+      .then((r) => {
+        if (r.status === 401) {
+          router.replace("/login");
+          return null;
+        }
+        return r.json();
+      })
+      .then((data) => {
+        if (data && !data.profile_completed) {
+          router.replace("/create-profile");
+        }
+      });
   }, []);
+
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -158,6 +176,21 @@ const BreastCancerApp = () => {
             <Info className="w-5 h-5" />
             <span className="hidden sm:inline">Help</span>
           </button>
+
+          <button
+          onClick={async () => {
+            await fetch(`${API_BASE}/logout`, {
+              method: "POST",
+              credentials: "include",
+            });
+
+            window.location.href =
+              process.env.NEXT_PUBLIC_LOGIN_URL || "/login";
+          }}
+        >
+          Logout
+        </button>
+
         </div>
       </header>
 

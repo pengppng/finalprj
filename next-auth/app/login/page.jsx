@@ -77,13 +77,40 @@
 "use client";
 
 import { GoogleLogin } from "@react-oauth/google";
+import { useRouter } from "next/navigation";
 
-export default function Test() {
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
+
+export default function LoginPage() {
+  const router = useRouter();
+
   return (
     <div style={{ padding: 40 }}>
       <GoogleLogin
-        onSuccess={(res) => {
-          console.log("Google Login Success:", res);
+        onSuccess={async (res) => {
+          const token = res.credential;
+
+          const r = await fetch(`${API_BASE}/auth/google`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ token }),
+          });
+
+          if (!r.ok) {
+            alert("Login failed");
+            return;
+          }
+
+          const me = await fetch(`${API_BASE}/me`, {
+            credentials: "include",
+          }).then((r) => r.json());
+
+          if (!me.profile_completed) {
+            router.push("/create-profile");
+          } else {
+            router.push("/dashboard");
+          }
         }}
         onError={() => {
           console.log("Google Login Error");
@@ -92,3 +119,4 @@ export default function Test() {
     </div>
   );
 }
+

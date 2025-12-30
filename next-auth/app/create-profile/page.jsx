@@ -15,6 +15,7 @@ export default function CreateProfilePage() {
 
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [isDoctor, setIsDoctor] = useState(0);
 
   // ✅ ใช้เช็คอายุ/วันเกิดเบื้องต้น (optional)
   const dobString = useMemo(() => {
@@ -78,6 +79,7 @@ export default function CreateProfilePage() {
         body: JSON.stringify({
           gender,
           date_of_birth: dobString, // ส่งเป็น YYYY-MM-DD
+          is_doctor: isDoctor,
         }),
       });
 
@@ -149,6 +151,18 @@ export default function CreateProfilePage() {
               className="w-full h-16 px-6 rounded-2xl bg-gray-50 border border-gray-100 text-xl"
               inputMode="numeric"
             />
+          </div>
+
+          <label className="block text-xl text-gray-600 mb-3">Occupation</label>
+          <div className="mb-10">
+              <select
+                value={isDoctor}
+                onChange={(e) => setIsDoctor(Number(e.target.value))}
+                className="w-full h-16 px-6 rounded-2xl bg-gray-50 border border-gray-100 text-xl"
+              >
+                <option value={0}>Not a doctor</option>
+                <option value={1}>Doctor</option>
+              </select>
           </div>
         </div>
 
