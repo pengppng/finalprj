@@ -16,23 +16,42 @@ const BreastCancerApp = () => {
   const [history, setHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [error, setError] = useState('');
+  const [saveImage, setSaveImage] = useState(true);
+  const [usageCount, setUsageCount] = useState(0);
   const router = useRouter();
   
-  useEffect(() => {
-    fetch(`${API_BASE}/me`, { credentials: "include" })
-      .then((r) => {
-        if (r.status === 401) {
-          router.replace("/login");
-          return null;
-        }
-        return r.json();
-      })
-      .then((data) => {
-        if (data && !data.profile_completed) {
-          router.replace("/create-profile");
-        }
-      });
-  }, []);
+useEffect(() => {
+  // ตรวจสอบ user
+  fetch(`${API_BASE}/me`, { credentials: "include" })
+    .then((r) => {
+      if (r.status === 401) {
+        router.replace("/login");
+        return null;
+      }
+      return r.json();
+    })
+    .then((data) => {
+      if (data && !data.profile_completed) {
+        router.replace("/create-profile");
+      }
+    })
+    .catch((err) => {
+      console.error("Error fetching user:", err);
+    });
+
+  // ดึง usage
+  fetch(`${API_BASE}/api/usage`, { credentials: "include" })
+  .then((res) => res.json())
+  .then((data) => {
+    console.log("Usage data:", data); // ดูว่าได้อะไร
+    if (data && typeof data.total_usage !== "undefined") {
+      setUsageCount(data.total_usage);
+    }
+  })
+  .catch((err) => {
+    console.error("Error fetching usage:", err);
+  });
+}, []);
 
 
   const handleImageUpload = (e) => {
@@ -44,51 +63,48 @@ const BreastCancerApp = () => {
       setError('');
     }
   };
-
   const analyzeImage = async () => {
-    if (!uploadedImage) return;
-    
-    setIsAnalyzing(true);
-    setError('');
+  if (!uploadedImage) return;
 
-    try {
-      // Simulating AI analysis - Replace with your actual model integration
-      await new Promise(resolve => setTimeout(resolve, 2500));
-      
-      const mockResults = {
-        prediction: Math.random() > 0.5 ? 'Malignant' : 'Benign',
-        confidence: parseFloat((Math.random() * 30 + 70).toFixed(2)),
-        heatmap: preview,
-        details: {
-          'Mass Detected': Math.random() > 0.3,
-          'Calcification': Math.random() > 0.6,
-          'Asymmetry': Math.random() > 0.5,
-          'Architectural Distortion': Math.random() > 0.7
-        }
-      };
-      
-      setResults(mockResults);
+  setIsAnalyzing(true);
+  setError("");
 
-      // Save to history
-      const newHistoryItem = {
-        id: Date.now(),
-        prediction: mockResults.prediction,
-        confidence: mockResults.confidence,
-        image: preview,
-        timestamp: new Date().toISOString()
-      };
+  try {
+    const formData = new FormData();
+    formData.append("image", uploadedImage);
+    formData.append("save_image", saveImage ? "true" : "false"); // ✅ สำคัญ
 
-      const updatedHistory = [newHistoryItem, ...history];
-      setHistory(updatedHistory);
-      localStorage.setItem('analysisHistory', JSON.stringify(updatedHistory));
+    const res = await fetch(`${API_BASE}/api/predict`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
 
-    } catch (err) {
-      console.error('Analysis error:', err);
-      setError('Failed to analyze image. Please try again.');
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
+    if (!res.ok) throw new Error("Prediction failed");
+
+    const data = await res.json();
+    setResults({
+      prediction: data.prediction,
+      confidence: data.pixel_confidence,
+      heatmap: data.overlay,
+      details: {},
+    });
+
+    // update usage
+    const usageData = await fetch(`${API_BASE}/api/usage`, {
+      credentials: "include",
+    }).then(r => r.json());
+
+    setUsageCount(usageData.total_usage);
+
+  } catch (err) {
+    console.error(err);
+    setError("Failed to analyze image");
+  } finally {
+    setIsAnalyzing(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen bg-linear-to-br from-purple-50 via-blue-50 to-indigo-100">
@@ -185,7 +201,7 @@ const BreastCancerApp = () => {
             });
 
             window.location.href =
-              process.env.NEXT_PUBLIC_LOGIN_URL || "/login";
+              process.env.NEXT_PUBLIC_LOGIN_URL || "/";
           }}
         >
           Logout
@@ -257,7 +273,13 @@ const BreastCancerApp = () => {
           {/* Results Section */}
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
             <h2 className="text-2xl font-bold mb-6 text-gray-800">Analysis Results</h2>
-            
+            <input
+              type="checkbox"
+              checked={saveImage}
+              onChange={(e) => setSaveImage(e.target.checked)}
+            />
+            <label>อนุญาตให้บันทึกผลการวิเคราะห์เพื่อดูย้อนหลัง</label>
+
             {results ? (
               <div className="space-y-5">
                 <div className={`p-6 rounded-xl border-2 ${
@@ -338,6 +360,12 @@ const BreastCancerApp = () => {
             )}
           </div>
         </div>
+            <div className="bg-indigo-50 p-4 rounded-xl">
+  <p className="text-sm text-gray-600">AI Usage</p>
+  <p className="text-3xl font-bold text-indigo-700">
+    {usageCount} ครั้ง
+  </p>
+</div>
 
         {/* History Section */}
         <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">

@@ -15,6 +15,7 @@ load_dotenv(".env.local")
 
 # FLASK SETUP
 app = Flask(__name__)
+
 app.secret_key = "dev-secret-key"
 
 app.config.update(
@@ -63,16 +64,16 @@ def google_auth():
     google_id = idinfo["sub"]
     email = idinfo["email"]
 
+    # หา user
     res = supabase.table("users").select("*").eq("email", email).execute()
 
     if res.data:
-        user = res.data[0]
+        user_db = res.data[0]
         supabase.table("users").update({
             "google_id": google_id,
             "firstname": idinfo.get("given_name"),
             "lastname": idinfo.get("family_name"),
         }).eq("email", email).execute()
-        user_db = user
     else:
         insert_res = supabase.table("users").insert({
             "email": email,
@@ -88,12 +89,20 @@ def google_auth():
         user_db.get("is_doctor") is not None
     ])
 
+    # session
     session["user"] = {
+        "user_id": user_db["id"],
         "google_id": google_id,
-        "email": email,
-        "user_id": user_db["id"]
+        "email": email
     }
     session["profile_completed"] = profile_completed
+
+    # ✅ LOGIN LOG
+    supabase.table("login_logs").insert({
+        "user_id": user_db["id"],
+        "ip_address": request.remote_addr,
+        "user_agent": request.headers.get("User-Agent")
+    }).execute()
 
     return jsonify({
         "status": "success",
@@ -128,7 +137,7 @@ def profile():
         "gender": data["gender"],
         "birthdate": data["date_of_birth"],
         "is_doctor": is_doctor
-    }).eq("google_id", session["user"]["google_id"]).execute()
+    }).eq("id", session["user"]["user_id"]).execute()
 
     session["profile_completed"] = True
     return jsonify({"status": "saved"})
@@ -161,6 +170,7 @@ model = tf.keras.models.load_model(
     custom_objects={"dice_coef": dice_coef},
     compile=False
 )
+print(model.signatures)
 print("✅ Model loaded")
 
 # IMAGE UTILS
@@ -184,14 +194,16 @@ def generate_overlay(image, prediction):
 def health():
     return jsonify({
         "status": "ok",
-        "model_loaded": model is not None,
-        "input_shape": model.input_shape,
-        "output_shape": model.output_shape
+        "model_loaded": True
     })
 
 # PREDICT
 @app.route("/api/predict", methods=["POST"])
 def predict():
+    print("🔥 /api/predict called")
+    print("FILES:", request.files)
+    print("FORM:", request.form)
+
     if "user" not in session:
         return jsonify({"error": "unauthorized"}), 401
 
@@ -203,11 +215,20 @@ def predict():
 
     image = Image.open(request.files["image"]).convert("RGB")
 
+    # ✅ รับค่าจาก checkbox (ต้องอยู่!)
+    save_image = request.form.get("save_image") == "true"
+
+    # ===== INFERENCE =====
     img_input = preprocess_image(image)
-    prediction = model.predict(img_input)[0]
+    infer = model.signatures["serving_default"]
+
+    img_tensor = tf.convert_to_tensor(img_input, dtype=tf.float32)
+    outputs = infer(input_layer=img_tensor)
+    prediction = outputs["output_0"].numpy()[0]
 
     pixel_confidence = float(np.mean(prediction) * 100)
 
+    # ===== SAVE IMAGE =====
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     mask_path = f"{ts}_mask.png"
     overlay_path = f"{ts}_overlay.jpg"
@@ -222,17 +243,93 @@ def predict():
         generate_overlay(image, prediction)
     )
 
-    return jsonify({
+    result = {
         "prediction": "Malignant" if pixel_confidence > 50 else "Benign",
         "pixel_confidence": pixel_confidence,
         "mask": f"/api/heatmaps/{mask_path}",
         "overlay": f"/api/heatmaps/{overlay_path}"
-    })
+    }
+
+    # ✅ เก็บ history เฉพาะยินยอม
+    if save_image:
+        supabase.table("prediction_history").insert({
+            "user_id": session["user"]["user_id"],
+            "prediction": result["prediction"],
+            "pixel_confidence": pixel_confidence,
+            "mask_url": result["mask"],
+            "overlay_url": result["overlay"]
+        }).execute()
+
+    # ✅ log การใช้งาน (ครั้งเดียวพอ)
+    supabase.table("prediction_logs").insert({
+        "user_id": session["user"]["user_id"],
+        "consent": save_image
+    }).execute()
+
+    return jsonify(result)
+
 
 # STATIC
 @app.route("/api/heatmaps/<filename>")
 def get_heatmap(filename):
     return send_from_directory(HEATMAP_FOLDER, filename)
+
+
+# HISTORY
+@app.route("/api/history", methods=["GET"])
+def history():
+    if "user" not in session:
+        return jsonify({"error": "unauthorized"}), 401
+
+    user_id = session["user"]["user_id"]
+
+    res = supabase.table("prediction_history") \
+    .select("*") \
+    .eq("user_id", user_id) \
+    .order("created_at", desc=True) \
+    .execute()
+
+    return jsonify({
+        "count": len(res.data),
+        "data": res.data
+    })
+
+@app.route("/api/usage")
+def usage():
+    if "user" not in session:
+        return jsonify({"error": "unauthorized"}), 401
+
+    user_id = session["user"]["user_id"]
+
+    res = supabase.table("prediction_logs") \
+        .select("id", count="exact") \
+        .eq("user_id", user_id) \
+        .execute()
+
+    return jsonify({
+        "total_usage": res.count
+    })
+@app.route("/api/usage/increment", methods=["POST"])
+def usage_increment():
+    if "user" not in session:
+        return jsonify({"error": "unauthorized"}), 401
+
+    user_id = session["user"]["user_id"]
+
+    # insert row เพื่อเพิ่ม usage
+    supabase.table("prediction_logs").insert({
+        "user_id": user_id,
+        "consent": False  # default ถ้าไม่สนใจ consent
+    }).execute()
+
+    # return total_usage ปัจจุบัน
+    res = supabase.table("prediction_logs") \
+        .select("id", count="exact") \
+        .eq("user_id", user_id) \
+        .execute()
+
+    return jsonify({"total_usage": res.count})
+
 
 # RUN
 if __name__ == "__main__":
