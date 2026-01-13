@@ -1,7 +1,26 @@
-flask==3.1.2
-flask-cors==6.0.2
-numpy==1.26.4
-opencv-python==4.9.0.80
-pillow==10.4.0
-tensorflow==2.15.0
-supabase
+# TensorFlow / Keras
+tensorflow==2.13.0
+keras==2.13.1
+
+# Image processing
+pillow>=9.5.0
+opencv-python>=4.8.0
+
+# Flask
+flask>=2.3.2
+flask-cors>=3.1.13
+
+# Supabase
+supabase>=1.0.0
+
+# Pydantic + dependencies
+pydantic>=2.14.0
+pydantic-core>=2.41.5
+typing-extensions>=4.14.1
+
+# Environment
+python-dotenv>=1.0.0
+
+# Google auth
+google-auth>=2.20.0
+google-auth-oauthlib>=1.0.0

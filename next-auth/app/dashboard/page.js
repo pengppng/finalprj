@@ -100,16 +100,16 @@ const BreastCancerApp = () => {
     const data = await res.json();
     setResults({
       prediction: data.prediction,
-      confidence: data.pixel_confidence,
+      confidence: data.confidence, // ✅ ตรงกับ backend
       heatmap: `${API_BASE}${data.overlay}`,
       details: {
         "Tumor Region Identified": true,
-        "Segmentation Confidence > 50%": data.pixel_confidence > 50,
+        "Segmentation Confidence > 50%": data.confidence > 50,
         "AI Model: U-Net": true,
         "Input Modality: Ultrasound": true,
-        "Lesion Detected": data.pixel_confidence > 50,
-        "High Risk Area": data.pixel_confidence > 70,
-        "Low Risk Area": data.pixel_confidence <= 50,
+        "Lesion Detected": data.confidence > 50,
+        "High Risk Area": data.confidence > 70,
+        "Low Risk Area": data.confidence <= 50,
       },
     });
 
@@ -321,7 +321,7 @@ const BreastCancerApp = () => {
                 <div className="p-6 rounded-xl bg-blue-50 border-2 border-blue-200">
                   <p className="text-sm font-medium text-gray-600 mb-2">Confidence:</p>
                   <p className="text-3xl font-bold text-blue-700">
-                    {results.confidence.toFixed(2)}%
+                    {results?.confidence !== undefined ? results.confidence.toFixed(2) : "0"}%
                   </p>
                 </div>
 

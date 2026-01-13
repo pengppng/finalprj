@@ -10,12 +10,12 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 from tensorflow.keras import backend as K
 
+
 # ENV
 load_dotenv(".env.local")
-
+print("TF KERAS PATH:", tf.keras.__file__)
 # FLASK SETUP
 app = Flask(__name__)
-
 app.secret_key = "dev-secret-key"
 
 app.config.update(
@@ -45,7 +45,7 @@ from google.auth.transport import requests as google_requests
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 print("GOOGLE_CLIENT_ID =", GOOGLE_CLIENT_ID)
 
-# AUTH GOOGLE
+# GOOGLE LOGIN
 @app.route("/auth/google", methods=["POST"])
 def google_auth():
     data = request.get_json()
@@ -64,7 +64,6 @@ def google_auth():
     google_id = idinfo["sub"]
     email = idinfo["email"]
 
-    # หา user
     res = supabase.table("users").select("*").eq("email", email).execute()
 
     if res.data:
@@ -89,7 +88,6 @@ def google_auth():
         user_db.get("is_doctor") is not None
     ])
 
-    # session
     session["user"] = {
         "user_id": user_db["id"],
         "google_id": google_id,
@@ -97,7 +95,6 @@ def google_auth():
     }
     session["profile_completed"] = profile_completed
 
-    # ✅ LOGIN LOG
     supabase.table("login_logs").insert({
         "user_id": user_db["id"],
         "ip_address": request.remote_addr,
@@ -109,25 +106,22 @@ def google_auth():
         "profile_completed": profile_completed
     })
 
-# CURRENT USER
+# PROFILE / SESSION
 @app.route("/me")
 def me():
     if "user" not in session:
         return jsonify({"error": "unauthorized"}), 401
-
     return jsonify({
         "user": session["user"],
         "profile_completed": session.get("profile_completed", False)
     })
 
-# PROFILE
 @app.route("/profile", methods=["POST"])
 def profile():
     if "user" not in session:
         return jsonify({"error": "unauthorized"}), 401
 
     data = request.json or {}
-
     if not data.get("gender") or not data.get("date_of_birth"):
         return jsonify({"error": "Incomplete profile"}), 400
 
@@ -142,7 +136,6 @@ def profile():
     session["profile_completed"] = True
     return jsonify({"status": "saved"})
 
-# LOGOUT
 @app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
@@ -151,11 +144,12 @@ def logout():
 # PATHS
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HEATMAP_FOLDER = os.path.join(BASE_DIR, "heatmaps")
-MODEL_PATH = os.path.join(BASE_DIR, "models", "saved_model")
+UNET_PATH = os.path.join(BASE_DIR, "models", "breast_ultrasound_unet.keras")
+CLASSIFIER_PATH = os.path.join(BASE_DIR, "models", "breast_ultrasound_classifier.keras")
 
 os.makedirs(HEATMAP_FOLDER, exist_ok=True)
 
-# MODEL
+# MODELS
 def dice_coef(y_true, y_pred, smooth=1):
     y_true_f = K.flatten(y_true)
     y_pred_f = K.flatten(y_pred)
@@ -164,28 +158,31 @@ def dice_coef(y_true, y_pred, smooth=1):
         K.sum(y_true_f) + K.sum(y_pred_f) + smooth
     )
 
-print("🔥 Loading SavedModel...")
-model = tf.keras.models.load_model(
-    MODEL_PATH,
-    custom_objects={"dice_coef": dice_coef},
-    compile=False
-)
-print(model.signatures)
-print("✅ Model loaded")
+print("🔥 Loading UNet...")
+try:
+    unet = tf.keras.models.load_model(UNET_PATH, compile=False)
+    print("✅ UNet loaded")
+except Exception as e:
+    print("❌ Failed to load UNet:", e)
+
+print("🔥 Loading Classifier...")
+classifier = tf.keras.models.load_model(CLASSIFIER_PATH, compile=False)
+print("✅ Classifier loaded")
+
+CLASS_NAMES = ["Normal", "Benign", "Malignant"]
 
 # IMAGE UTILS
-def preprocess_image(image, size=256):
+def preprocess_rgb(image, size=256):
     image = image.resize((size, size))
     img = np.array(image)
     if img.ndim == 2:
         img = np.stack([img] * 3, axis=-1)
-    img = img / 255.0
-    return np.expand_dims(img, axis=0)
+    return img.astype(np.float32) / 255.0
 
-def generate_overlay(image, prediction):
+def generate_overlay(image, mask):
     img = np.array(image)
-    mask = np.uint8(prediction * 255)
     mask = cv2.resize(mask, (img.shape[1], img.shape[0]))
+    mask = np.uint8(mask * 255)
     heatmap = cv2.applyColorMap(mask, cv2.COLORMAP_JET)
     return cv2.addWeighted(img, 0.6, heatmap, 0.4, 0)
 
@@ -194,16 +191,13 @@ def generate_overlay(image, prediction):
 def health():
     return jsonify({
         "status": "ok",
-        "model_loaded": True
+        "unet_loaded": True,
+        "classifier_loaded": True
     })
 
-# PREDICT
+# PREDICT (UNet → Classifier)
 @app.route("/api/predict", methods=["POST"])
 def predict():
-    print("🔥 /api/predict called")
-    print("FILES:", request.files)
-    print("FORM:", request.form)
-
     if "user" not in session:
         return jsonify({"error": "unauthorized"}), 401
 
@@ -214,58 +208,62 @@ def predict():
         return jsonify({"error": "No image uploaded"}), 400
 
     image = Image.open(request.files["image"]).convert("RGB")
-
-    # ✅ รับค่าจาก checkbox (ต้องอยู่!)
     save_image = request.form.get("save_image") == "true"
 
-    # INFERENCE
-    img_input = preprocess_image(image)
-    infer = model.signatures["serving_default"]
+    # --- preprocess ---
+    img = preprocess_rgb(image)
+    x = np.expand_dims(img, axis=0)
 
-    img_tensor = tf.convert_to_tensor(img_input, dtype=tf.float32)
-    outputs = infer(input_layer=img_tensor)
-    prediction = outputs["output_0"].numpy()[0]
+    # --- UNet ---
+    mask = unet.predict(x, verbose=0)[0, :, :, 0]
+    mask_bin = (mask > 0.5).astype(np.float32)
 
-    pixel_confidence = float(np.mean(prediction) * 100)
+    # --- apply weighted mask (เพื่อไม่ให้สูญเสีย region สำคัญ) ---
+    img_weighted = img + img * mask_bin[..., np.newaxis]
+    img_weighted = np.clip(img_weighted, 0, 1)  # clip ไม่ให้เกิน 1
+    x_cls = np.expand_dims(img_weighted, axis=0)
 
-    # SAVE IMAGE
+    # --- Classifier ---
+    probs = classifier.predict(x_cls, verbose=0)[0]
+    class_id = int(np.argmax(probs))
+    confidence = float(probs[class_id] * 100)  # ส่งตรงจาก model
+
+    # --- save images ---
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     mask_path = f"{ts}_mask.png"
     overlay_path = f"{ts}_overlay.jpg"
 
     cv2.imwrite(
         os.path.join(HEATMAP_FOLDER, mask_path),
-        (prediction > 0.5).astype(np.uint8) * 255
+        (mask_bin * 255).astype(np.uint8)
     )
-
     cv2.imwrite(
         os.path.join(HEATMAP_FOLDER, overlay_path),
-        generate_overlay(image, prediction)
+        generate_overlay(image, mask_bin)
     )
 
     result = {
-    "prediction": "Malignant" if pixel_confidence > 50 else "Benign",
-    "pixel_confidence": pixel_confidence,
-    "mask": f"/api/heatmaps/{mask_path}",
-    "overlay": f"/api/heatmaps/{overlay_path}",
-    "details": {
-        "High Risk Area": pixel_confidence > 60,
-        "Irregular Shape": pixel_confidence > 50,
-        "Low Confidence Region": pixel_confidence < 40 
+        "prediction": CLASS_NAMES[class_id],
+        "confidence": confidence,  # ส่งตรง
+        "overlay": f"/api/heatmaps/{overlay_path}",
+        "mask": f"/api/heatmaps/{mask_path}",
+        "details": {
+            "High Risk Area": bool(class_id == 2 and confidence > 70),
+            "Irregular Shape": bool(mask.sum() > 1000),
+            "Low Confidence Region": bool(confidence < 40),
+            "Segmentation Confidence > 50%": confidence > 50,
         }
     }
 
-    # ✅ เก็บ history เฉพาะยินยอม
     if save_image:
         supabase.table("prediction_history").insert({
             "user_id": session["user"]["user_id"],
             "prediction": result["prediction"],
-            "pixel_confidence": pixel_confidence,
-            "mask_url": result["mask"],
-            "overlay_url": result["overlay"]
+            "pixel_confidence": confidence,
+            "mask_url": f"/api/heatmaps/{mask_path}",
+            "overlay_url": f"/api/heatmaps/{overlay_path}"
         }).execute()
 
-    # ✅ log การใช้งาน (ครั้งเดียวพอ)
     supabase.table("prediction_logs").insert({
         "user_id": session["user"]["user_id"],
         "consent": save_image
@@ -279,55 +277,31 @@ def predict():
 def get_heatmap(filename):
     return send_from_directory(HEATMAP_FOLDER, filename)
 
-
 # HISTORY
-@app.route("/api/history", methods=["GET"])
+@app.route("/api/history")
 def history():
     if "user" not in session:
         return jsonify({"error": "unauthorized"}), 401
 
     user_id = session["user"]["user_id"]
-
     res = supabase.table("prediction_history") \
-    .select("*") \
-    .eq("user_id", user_id) \
-    .order("created_at", desc=True) \
-    .execute()
+        .select("*") \
+        .eq("user_id", user_id) \
+        .order("created_at", desc=True) \
+        .execute()
 
     return jsonify({
         "count": len(res.data),
         "data": res.data
     })
 
+# USAGE
 @app.route("/api/usage")
 def usage():
     if "user" not in session:
         return jsonify({"error": "unauthorized"}), 401
 
     user_id = session["user"]["user_id"]
-
-    res = supabase.table("prediction_logs") \
-        .select("id", count="exact") \
-        .eq("user_id", user_id) \
-        .execute()
-
-    return jsonify({
-        "total_usage": res.count
-    })
-@app.route("/api/usage/increment", methods=["POST"])
-def usage_increment():
-    if "user" not in session:
-        return jsonify({"error": "unauthorized"}), 401
-
-    user_id = session["user"]["user_id"]
-
-    # insert row เพื่อเพิ่ม usage
-    supabase.table("prediction_logs").insert({
-        "user_id": user_id,
-        "consent": False  # default ถ้าไม่สนใจ consent
-    }).execute()
-
-    # return total_usage ปัจจุบัน
     res = supabase.table("prediction_logs") \
         .select("id", count="exact") \
         .eq("user_id", user_id) \
@@ -335,6 +309,23 @@ def usage_increment():
 
     return jsonify({"total_usage": res.count})
 
+@app.route("/api/usage/increment", methods=["POST"])
+def usage_increment():
+    if "user" not in session:
+        return jsonify({"error": "unauthorized"}), 401
+
+    user_id = session["user"]["user_id"]
+    supabase.table("prediction_logs").insert({
+        "user_id": user_id,
+        "consent": False
+    }).execute()
+
+    res = supabase.table("prediction_logs") \
+        .select("id", count="exact") \
+        .eq("user_id", user_id) \
+        .execute()
+
+    return jsonify({"total_usage": res.count})
 
 # RUN
 if __name__ == "__main__":
