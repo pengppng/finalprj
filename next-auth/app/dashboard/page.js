@@ -20,38 +20,53 @@ const BreastCancerApp = () => {
   const [usageCount, setUsageCount] = useState(0);
   const router = useRouter();
   
-useEffect(() => {
-  // ตรวจสอบ user
-  fetch(`${API_BASE}/me`, { credentials: "include" })
-    .then((r) => {
-      if (r.status === 401) {
-        router.replace("/login");
-        return null;
-      }
-      return r.json();
-    })
+  useEffect(() => {
+    // ตรวจสอบ user
+    fetch(`${API_BASE}/me`, { credentials: "include" })
+      .then((r) => {
+        if (r.status === 401) {
+          router.replace("/login");
+          return null;
+        }
+        return r.json();
+      })
+      .then((data) => {
+        if (data && !data.profile_completed) {
+          router.replace("/create-profile");
+        }
+      })
+      .catch((err) => {
+        console.error("Error fetching user:", err);
+      });
+
+    // ดึง usage
+    fetch(`${API_BASE}/api/usage`, { credentials: "include" })
+    .then((res) => res.json())
     .then((data) => {
-      if (data && !data.profile_completed) {
-        router.replace("/create-profile");
+      console.log("Usage data:", data); // ดูว่าได้อะไร
+      if (data && typeof data.total_usage !== "undefined") {
+        setUsageCount(data.total_usage);
       }
     })
     .catch((err) => {
-      console.error("Error fetching user:", err);
+      console.error("Error fetching usage:", err);
     });
+  }, []);
+  
+  useEffect(() => {
+  if (!showHistory) return;
 
-  // ดึง usage
-  fetch(`${API_BASE}/api/usage`, { credentials: "include" })
-  .then((res) => res.json())
-  .then((data) => {
-    console.log("Usage data:", data); // ดูว่าได้อะไร
-    if (data && typeof data.total_usage !== "undefined") {
-      setUsageCount(data.total_usage);
-    }
+  fetch(`${API_BASE}/api/history`, {
+    credentials: "include",
   })
-  .catch((err) => {
-    console.error("Error fetching usage:", err);
-  });
-}, []);
+    .then(res => res.json())
+    .then(data => {
+      setHistory(data.data || []);
+    })
+    .catch(err => {
+      console.error("Error loading history:", err);
+    });
+  }, [showHistory]);
 
 
   const handleImageUpload = (e) => {
@@ -86,8 +101,16 @@ useEffect(() => {
     setResults({
       prediction: data.prediction,
       confidence: data.pixel_confidence,
-      heatmap: data.overlay,
-      details: {},
+      heatmap: `${API_BASE}${data.overlay}`,
+      details: {
+        "Tumor Region Identified": true,
+        "Segmentation Confidence > 50%": data.pixel_confidence > 50,
+        "AI Model: U-Net": true,
+        "Input Modality: Ultrasound": true,
+        "Lesion Detected": data.pixel_confidence > 50,
+        "High Risk Area": data.pixel_confidence > 70,
+        "Low Risk Area": data.pixel_confidence <= 50,
+      },
     });
 
     // update usage
@@ -387,29 +410,34 @@ useEffect(() => {
           {showHistory && history.length > 0 && (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {history.map((item) => (
-                <div key={item.id} className="border-2 border-gray-200 rounded-xl overflow-hidden hover:shadow-xl transition-all hover:border-indigo-300 bg-linear-to-br from-white to-gray-50">
-                  <img
-                    src={item.image}
-                    alt="History"
-                    className="w-full h-40 object-cover"
-                  />
-                  <div className="p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className={`font-bold text-lg ${
-                        item.prediction === 'Malignant' ? 'text-red-600' : 'text-green-600'
-                      }`}>
-                        {item.prediction}
-                      </span>
-                      <span className="text-sm font-semibold text-gray-700 bg-gray-100 px-3 py-1 rounded-full">
-                        {item.confidence.toFixed(1)}%
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      {new Date(item.timestamp).toLocaleString()}
-                    </p>
+              <div key={item.id} className="border rounded-xl overflow-hidden">
+                <img
+                  src={`${API_BASE}${item.overlay_url}`}
+                  alt="History"
+                  className="w-full h-40 object-cover"
+                />
+
+                <div className="p-4">
+                  <div className="flex justify-between">
+                    <span className={`font-bold ${
+                      item.prediction === 'Malignant'
+                        ? 'text-red-600'
+                        : 'text-green-600'
+                    }`}>
+                      {item.prediction}
+                    </span>
+
+                    <span className="text-sm">
+                      {item.pixel_confidence.toFixed(1)}%
+                    </span>
                   </div>
+
+                  <p className="text-xs text-gray-500">
+                    {new Date(item.created_at).toLocaleString()}
+                  </p>
                 </div>
-              ))}
+              </div>
+            ))}
             </div>
           )}
 

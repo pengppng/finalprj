@@ -218,7 +218,7 @@ def predict():
     # ✅ รับค่าจาก checkbox (ต้องอยู่!)
     save_image = request.form.get("save_image") == "true"
 
-    # ===== INFERENCE =====
+    # INFERENCE
     img_input = preprocess_image(image)
     infer = model.signatures["serving_default"]
 
@@ -228,7 +228,7 @@ def predict():
 
     pixel_confidence = float(np.mean(prediction) * 100)
 
-    # ===== SAVE IMAGE =====
+    # SAVE IMAGE
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     mask_path = f"{ts}_mask.png"
     overlay_path = f"{ts}_overlay.jpg"
@@ -244,10 +244,15 @@ def predict():
     )
 
     result = {
-        "prediction": "Malignant" if pixel_confidence > 50 else "Benign",
-        "pixel_confidence": pixel_confidence,
-        "mask": f"/api/heatmaps/{mask_path}",
-        "overlay": f"/api/heatmaps/{overlay_path}"
+    "prediction": "Malignant" if pixel_confidence > 50 else "Benign",
+    "pixel_confidence": pixel_confidence,
+    "mask": f"/api/heatmaps/{mask_path}",
+    "overlay": f"/api/heatmaps/{overlay_path}",
+    "details": {
+        "High Risk Area": pixel_confidence > 60,
+        "Irregular Shape": pixel_confidence > 50,
+        "Low Confidence Region": pixel_confidence < 40 
+        }
     }
 
     # ✅ เก็บ history เฉพาะยินยอม
