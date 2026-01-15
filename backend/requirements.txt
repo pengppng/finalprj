@@ -1,10 +1,11 @@
 # TensorFlow / Keras
-tensorflow==2.13.0
-keras==2.13.1
+tensorflow==2.20.0
+keras==3.11.3
 
 # Image processing
 pillow>=9.5.0
 opencv-python>=4.8.0
+numpy>=1.26.0,<2.0
 
 # Flask
 flask>=2.3.2
@@ -14,8 +15,7 @@ flask-cors>=3.1.13
 supabase>=1.0.0
 
 # Pydantic + dependencies
-pydantic>=2.14.0
-pydantic-core>=2.41.5
+pydantic==2.12.5
 typing-extensions>=4.14.1
 
 # Environment

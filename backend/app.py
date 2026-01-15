@@ -244,7 +244,7 @@ def predict():
 
     result = {
         "prediction": CLASS_NAMES[class_id],
-        "confidence": confidence,  # ส่งตรง
+        "confidence": confidence,
         "overlay": f"/api/heatmaps/{overlay_path}",
         "mask": f"/api/heatmaps/{mask_path}",
         "details": {
