@@ -242,18 +242,23 @@ def predict():
         generate_overlay(image, mask_bin)
     )
 
+    features = {
+    "Shape": "Irregular" if mask.sum() > 1000 else "Oval",
+    "Margin": "Spiculated" if mask.sum() > 1500 else "Circumscribed",
+    "Composition": "Solid",  # placeholder
+    "Echogenicity": "Hypoechoic" if confidence > 50 else "Isoechoic",
+    "Shadowing": "Present" if mask.sum() > 2000 else "None",
+    }
+
+
     result = {
         "prediction": CLASS_NAMES[class_id],
         "confidence": confidence,
         "overlay": f"/api/heatmaps/{overlay_path}",
         "mask": f"/api/heatmaps/{mask_path}",
-        "details": {
-            "High Risk Area": bool(class_id == 2 and confidence > 70),
-            "Irregular Shape": bool(mask.sum() > 1000),
-            "Low Confidence Region": bool(confidence < 40),
-            "Segmentation Confidence > 50%": confidence > 50,
-        }
+        "features": features
     }
+
 
     if save_image:
         supabase.table("prediction_history").insert({
