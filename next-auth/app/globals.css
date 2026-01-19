@@ -1,7 +1,7 @@
 @import "tailwindcss"; 
 
 /* Animated Blob Background */
-@keyframes blob {
+/* @keyframes blob {
   0%, 100% {
     transform: translate(0, 0) scale(1);
   }
@@ -16,9 +16,9 @@
   }
 }
 
-.animate-blob {
+ .animate-blob {
   animation: blob 7s infinite;
-}
+} */
 
 .animation-delay-2000 {
   animation-delay: 2s;
@@ -51,4 +51,11 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: #a5b4fc;
+}
+
+:root {
+  --primary: #696156;
+  --background: #EBE8E3;
+  --black: #000000;
+  --white: #FFFFFF;
 }
