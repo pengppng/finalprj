@@ -10,8 +10,15 @@ export default function FeatureModal({
   const meta = featureMeta[activeFeature];
   if (!meta) return null;
 
-  const valueKey = String(featureValue ?? "").trim();
-  const example = meta.examples?.[valueKey];
+  const valueKey = String(featureValue ?? "")
+  .trim()
+  .toLowerCase();
+
+  const example =
+    meta.examples &&
+    Object.entries(meta.examples).find(
+      ([key]) => key.toLowerCase() === valueKey
+    )?.[1];
 
   return (
     <div
@@ -33,7 +40,6 @@ export default function FeatureModal({
           {meta.label}
         </h3>
 
-        {/* ✅ รูปตัวอย่าง */}
         {meta.image && (
           <img
             src={meta.image}
