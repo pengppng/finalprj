@@ -15,16 +15,34 @@ export default function ResultSection({
       </h2>
 
       {/* Save Image */}
-      <div className="flex items-center gap-2 mb-6">
-        <input
-          type="checkbox"
-          checked={saveImage}
-          onChange={(e) => setSaveImage(e.target.checked)}
-        />
-        <label className="text-sm text-gray-700">
-          อนุญาตให้บันทึกผลการวิเคราะห์เพื่อดูย้อนหลัง
-        </label>
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-gray-800">
+            อนุญาตให้บันทึกผลการวิเคราะห์
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            เพื่อให้สามารถดูประวัติการวิเคราะห์ย้อนหลังได้
+          </p>
+        </div>
+
+        {/* Switch */}
+        <button
+          type="button"
+          onClick={() => setSaveImage(!saveImage)}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition
+            ${saveImage ? "bg-indigo-600" : "bg-gray-300"}
+          `}
+          aria-pressed={saveImage}
+          aria-label="Save analysis result"
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition
+              ${saveImage ? "translate-x-6" : "translate-x-1"}
+            `}
+          />
+        </button>
       </div>
+
 
       {results ? (
         <div className="space-y-5">
@@ -46,7 +64,7 @@ export default function ResultSection({
                   : "text-green-700"
               }`}
             >
-              {results.prediction}
+              {results.modelPrediction}
             </p>
           </div>
 
@@ -56,7 +74,7 @@ export default function ResultSection({
               Confidence:
             </p>
             <p className="text-3xl font-bold text-blue-700">
-              {results.confidence?.toFixed(2)}%
+              {results.modelConfidence?.toFixed(2)}%
             </p>
           </div>
 

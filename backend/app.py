@@ -195,6 +195,57 @@ def health():
         "classifier_loaded": True
     })
 
+def clinical_decision(class_id, confidence):
+        """
+        confidence: percentage (0–100)
+        """
+
+        if class_id == 0:  # Normal
+            return {
+                "final_class": "Normal",
+                "birads": "BI-RADS 1",
+                "risk": "Low",
+                "recommendation": "Routine screening"
+            }
+
+        elif class_id == 1:  # Benign
+            if confidence >= 85:
+                return {
+                    "final_class": "Benign",
+                    "birads": "BI-RADS 2",
+                    "risk": "Low",
+                    "recommendation": "No follow-up needed"
+                }
+            else:
+                return {
+                    "final_class": "Probably Benign",
+                    "birads": "BI-RADS 3",
+                    "risk": "Low–Moderate",
+                    "recommendation": "Short-term follow-up (6 months)"
+                }
+
+        elif class_id == 2:  # Malignant
+            if confidence >= 85:
+                return {
+                    "final_class": "Malignant",
+                    "birads": "BI-RADS 5",
+                    "risk": "High",
+                    "recommendation": "Biopsy strongly recommended"
+                }
+            else:
+                return {
+                    "final_class": "Suspicious",
+                    "birads": "BI-RADS 4",
+                    "risk": "Moderate–High",
+                    "recommendation": "Further diagnostic evaluation"
+                }
+        else:
+            return {
+                "final_class": "Unknown",
+                "birads": "N/A",
+                "risk": "Unknown",
+                "recommendation": "Model output invalid"
+            }
 # PREDICT (UNet → Classifier)
 @app.route("/api/predict", methods=["POST"])
 def predict():
@@ -225,8 +276,13 @@ def predict():
 
     # --- Classifier ---
     probs = classifier.predict(x_cls, verbose=0)[0]
+    
+    print("probs:", probs)
+    print("sum probs:", np.sum(probs))
+    print("mask sum:", mask.sum())
     class_id = int(np.argmax(probs))
     confidence = float(probs[class_id] * 100)  # ส่งตรงจาก model
+    decision = clinical_decision(class_id, confidence)
 
     # --- save images ---
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -252,22 +308,35 @@ def predict():
 
 
     result = {
+    "model": {
         "prediction": CLASS_NAMES[class_id],
-        "confidence": confidence,
-        "overlay": f"/api/heatmaps/{overlay_path}",
-        "mask": f"/api/heatmaps/{mask_path}",
-        "features": features
+        "confidence": confidence
+    },
+    "clinical": {
+        "final_decision": decision["final_class"],
+        "birads": decision["birads"],
+        "risk": decision["risk"],
+        "recommendation": decision["recommendation"]
+    },
+    "overlay": f"/api/heatmaps/{overlay_path}",
+    "mask": f"/api/heatmaps/{mask_path}",
+    "features": features
     }
 
 
     if save_image:
-        supabase.table("prediction_history").insert({
-            "user_id": session["user"]["user_id"],
-            "prediction": result["prediction"],
-            "pixel_confidence": confidence,
-            "mask_url": f"/api/heatmaps/{mask_path}",
-            "overlay_url": f"/api/heatmaps/{overlay_path}"
-        }).execute()
+        try:
+            supabase.table("prediction_history").insert({
+                "user_id": session["user"]["user_id"],
+                "prediction": result["model"]["prediction"],
+                "pixel_confidence": result["model"]["confidence"],
+                "birads": result["clinical"]["birads"],
+                "mask_url": f"/api/heatmaps/{mask_path}",
+                "overlay_url": f"/api/heatmaps/{overlay_path}"
+            }).execute()
+        except Exception as e:
+            print("❌ Supabase insert failed:", e)
+
 
     supabase.table("prediction_logs").insert({
         "user_id": session["user"]["user_id"],

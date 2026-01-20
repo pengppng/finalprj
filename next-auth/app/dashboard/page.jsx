@@ -78,8 +78,14 @@ export default function BreastCancerApp() {
       const data = await res.json();
 
       setResults({
-        prediction: data.prediction,
-        confidence: data.confidence,
+        modelPrediction: data.model.prediction,
+        modelConfidence: data.model.confidence,
+
+        finalDecision: data.clinical.final_decision,
+        birads: data.clinical.birads,
+        risk: data.clinical.risk,
+        recommendation: data.clinical.recommendation,
+
         heatmap: `${API_BASE}${data.overlay}`,
         details: data.features,
       });

@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.9",
     "@react-oauth/google": "^0.13.4",
     "lucide-react": "^0.555.0",
     "next": "16.0.5",

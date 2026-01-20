@@ -57,7 +57,7 @@ const featureMeta = {
     },
 
     Echogenicity: {
-      label: "การติดสี",
+      label: "การสะท้อนคลื่นเสียง",
       image: "/examples/echogenicity.jpg",
       examples: {
         Hypoechoic: {
