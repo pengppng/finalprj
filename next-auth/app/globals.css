@@ -1,7 +1,7 @@
 @import "tailwindcss"; 
 
 /* Animated Blob Background */
-/* @keyframes blob {
+@keyframes blob {
   0%, 100% {
     transform: translate(0, 0) scale(1);
   }
@@ -18,7 +18,7 @@
 
  .animate-blob {
   animation: blob 7s infinite;
-} */
+}
 
 .animation-delay-2000 {
   animation-delay: 2s;
