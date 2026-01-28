@@ -14,7 +14,7 @@ export async function POST(request) {
 
     // Call Python API
     const pythonApiUrl = process.env.NEXT_PUBLIC_PYTHON_API_URL || "http://localhost:5000";
-    const response = await fetch(`${pythonApiUrl}/predict`, {
+    const response = await fetch(`${pythonApiUrl}/api/predict`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

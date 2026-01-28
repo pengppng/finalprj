@@ -9,7 +9,7 @@ import tensorflow as tf
 from dotenv import load_dotenv
 from supabase import create_client, Client
 from tensorflow.keras import backend as K
-
+import pydicom
 
 # ENV
 load_dotenv(".env.local")
@@ -26,7 +26,11 @@ app.config.update(
 CORS(
     app,
     supports_credentials=True,
-    origins=["http://localhost:3000"]
+    origins=[
+        "http://localhost:3000",
+        "http://192.168.1.106:3000",
+        "https://*.trycloudflare.com"
+    ]
 )
 
 # SUPABASE
@@ -172,6 +176,22 @@ print("✅ Classifier loaded")
 CLASS_NAMES = ["Normal", "Benign", "Malignant"]
 
 # IMAGE UTILS
+def dicom_to_png(dicom_file, size=256):
+    dicom = pydicom.dcmread(dicom_file)
+    pixels = dicom.pixel_array.astype(np.float32)
+    # normalize contrast
+    pixels -= pixels.min()
+    if pixels.max() > 0:
+        pixels /= pixels.max()
+    pixels *= 255.0
+    pixels = pixels.astype(np.uint8)
+    # resize
+    img = cv2.resize(pixels, (size, size))
+    # grayscale -> RGB
+    img = np.stack([img] * 3, axis=-1)
+    return img.astype(np.float32) / 255.0
+
+
 def preprocess_rgb(image, size=256):
     image = image.resize((size, size))
     img = np.array(image)
@@ -258,33 +278,48 @@ def predict():
     if "image" not in request.files:
         return jsonify({"error": "No image uploaded"}), 400
 
-    image = Image.open(request.files["image"]).convert("RGB")
+    file = request.files["image"]
+    filename = file.filename.lower()
     save_image = request.form.get("save_image") == "true"
 
-    # --- preprocess ---
-    img = preprocess_rgb(image)
+    # PREPROCESS (PNG / JPG / DICOM)
+    try:
+        if filename.endswith(".dcm"):
+            # dicom
+            img = dicom_to_png(file)  # (256,256,3) float32 0-1
+            image_for_overlay = Image.fromarray(
+                (img * 255).astype(np.uint8)
+            )
+        else:
+            # normal image
+            image_for_overlay = Image.open(file).convert("RGB")
+            img = preprocess_rgb(image_for_overlay)
+
+    except Exception as e:
+        return jsonify({
+            "error": "Failed to process image",
+            "detail": str(e)
+        }), 400
+
     x = np.expand_dims(img, axis=0)
 
-    # --- UNet ---
+    # UNET (SEGMENTATION)
     mask = unet.predict(x, verbose=0)[0, :, :, 0]
     mask_bin = (mask > 0.5).astype(np.float32)
 
-    # --- apply weighted mask (เพื่อไม่ให้สูญเสีย region สำคัญ) ---
+    # APPLY WEIGHTED MASK
     img_weighted = img + img * mask_bin[..., np.newaxis]
-    img_weighted = np.clip(img_weighted, 0, 1)  # clip ไม่ให้เกิน 1
+    img_weighted = np.clip(img_weighted, 0, 1)
     x_cls = np.expand_dims(img_weighted, axis=0)
 
-    # --- Classifier ---
+    # CLASSIFIER
     probs = classifier.predict(x_cls, verbose=0)[0]
-    
-    print("probs:", probs)
-    print("sum probs:", np.sum(probs))
-    print("mask sum:", mask.sum())
     class_id = int(np.argmax(probs))
-    confidence = float(probs[class_id] * 100)  # ส่งตรงจาก model
+    confidence = float(probs[class_id] * 100)
+
     decision = clinical_decision(class_id, confidence)
 
-    # --- save images ---
+    # SAVE MASK + OVERLAY
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     mask_path = f"{ts}_mask.png"
     overlay_path = f"{ts}_overlay.jpg"
@@ -295,48 +330,46 @@ def predict():
     )
     cv2.imwrite(
         os.path.join(HEATMAP_FOLDER, overlay_path),
-        generate_overlay(image, mask_bin)
+        generate_overlay(image_for_overlay, mask_bin)
     )
 
     features = {
-    "Shape": "Irregular" if mask.sum() > 1000 else "Oval",
-    "Margin": "Spiculated" if mask.sum() > 1500 else "Circumscribed",
-    "Composition": "Solid",  # placeholder
-    "Echogenicity": "Hypoechoic" if confidence > 50 else "Isoechoic",
-    "Shadowing": "Present" if mask.sum() > 2000 else "None",
+        "Shape": "Irregular" if mask.sum() > 1000 else "Oval",
+        "Margin": "Spiculated" if mask.sum() > 1500 else "Circumscribed",
+        "Composition": "Solid",
+        "Echogenicity": "Hypoechoic" if confidence > 50 else "Isoechoic",
+        "Shadowing": "Present" if mask.sum() > 2000 else "None",
     }
-
 
     result = {
-    "model": {
-        "prediction": CLASS_NAMES[class_id],
-        "confidence": confidence
-    },
-    "clinical": {
-        "final_decision": decision["final_class"],
-        "birads": decision["birads"],
-        "risk": decision["risk"],
-        "recommendation": decision["recommendation"]
-    },
-    "overlay": f"/api/heatmaps/{overlay_path}",
-    "mask": f"/api/heatmaps/{mask_path}",
-    "features": features
+        "model": {
+            "prediction": CLASS_NAMES[class_id],
+            "confidence": confidence
+        },
+        "clinical": {
+            "final_decision": decision["final_class"],
+            "birads": decision["birads"],
+            "risk": decision["risk"],
+            "recommendation": decision["recommendation"]
+        },
+        "overlay": f"/api/heatmaps/{overlay_path}",
+        "mask": f"/api/heatmaps/{mask_path}",
+        "features": features
     }
 
-
+    # SAVE HISTORY (OPTIONAL)
     if save_image:
         try:
             supabase.table("prediction_history").insert({
                 "user_id": session["user"]["user_id"],
                 "prediction": result["model"]["prediction"],
-                "pixel_confidence": result["model"]["confidence"],
-                "birads": result["clinical"]["birads"],
+                "pixel_confidence": confidence,
+                "birads": decision["birads"],
                 "mask_url": f"/api/heatmaps/{mask_path}",
                 "overlay_url": f"/api/heatmaps/{overlay_path}"
             }).execute()
         except Exception as e:
             print("❌ Supabase insert failed:", e)
-
 
     supabase.table("prediction_logs").insert({
         "user_id": session["user"]["user_id"],

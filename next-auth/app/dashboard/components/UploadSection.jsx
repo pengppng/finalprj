@@ -29,10 +29,15 @@ export default function UploadSection({
               <FileImage size={48} className="text-indigo-600" />
             </div>
             <p className="text-gray-700 font-semibold mb-1">Click to upload image</p>
-            <p className="text-sm text-gray-500">PNG, JPG up to 10MB</p>
+            <p className="text-sm text-gray-500">PNG, JPG, DICOM (.dcm) up to 10MB</p>
           </div>
         )}
-        <input type="file" accept="image/*" onChange={onUpload} className="hidden" />
+        <input
+          type="file"
+          accept=".png,.jpg,.jpeg,.dcm"
+          onChange={onUpload}
+          className="hidden"
+        />
       </label>
 
       {error && (
